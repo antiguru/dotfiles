@@ -1,0 +1,53 @@
+execute pathogen#infect()
+
+filetype plugin on
+syntax on
+
+filetype plugin indent on 
+syntax enable
+
+set tabstop=4
+set shiftwidth=4
+set expandtab
+set autoindent
+" support all mouse modes
+set mouse=a
+set nomousehide
+" line numbering
+set number
+
+set modeline
+
+" These settings are for latex suite
+" IMPORTANT: grep will sometimes skip displaying the file name if you
+" search in a singe file. This will confuse Latex-Suite. Set your grep
+" program to always generate a file-name.
+set grepprg=grep\ -nH\ $*
+
+" OPTIONAL: This enables automatic indentation as you type.
+filetype indent on
+
+" OPTIONAL: Starting with Vim 7, the filetype of empty .tex files defaults to
+" 'plaintex' instead of 'tex', which results in vim-latex not being loaded.
+" The following changes the default filetype back to 'tex':
+let g:tex_flavor='latex'
+
+" Default output format is PDF
+" MH 20110512
+let g:Tex_DefaultTargetFormat = 'pdf'
+let g:Tex_ViewRule_pdf = 'zathura'
+
+let g:tex_indent_brace=0
+
+"set tw=80
+"Always limit the width of text to 80
+if executable('rls')
+    au User lsp_setup call lsp#register_server({
+            \ 'name': 'rls',
+            \ 'cmd': {server_info->['rustup', 'run', 'nightly', 'rls']},
+            \ 'whitelist': ['rust'],
+            \ })
+endif
+
+
+set spell spelllang=en_us,de_de
