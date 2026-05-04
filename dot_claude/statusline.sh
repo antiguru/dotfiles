@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Claude Code status line script
-# Outputs: WORK (bold) | ctx% | 5h% (±delta%) | 7d% (±delta%) | worktree | PR#NNNN | model
+# Usage: statusline.sh [LABEL]   (LABEL defaults to WORK)
+# Outputs: LABEL (bold) | ctx% | 5h% (±delta%) | 7d% (±delta%) | worktree | PR#NNNN | model
 
 set -euo pipefail
 
@@ -10,12 +11,20 @@ BOLD='\033[1m'
 DIM='\033[2m'
 CYAN='\033[36m'
 BRIGHT_YELLOW='\033[1;33m'
+BRIGHT_GREEN='\033[1;32m'
 BRIGHT_BLUE='\033[1;34m'
 MAGENTA='\033[35m'
 GREEN='\033[32m'
 YELLOW='\033[33m'
 RED='\033[31m'
 DIM_GRAY='\033[2;37m'
+
+LABEL="${1:-WORK}"
+case "$LABEL" in
+    WORK)     LABEL_COLOR="$BRIGHT_YELLOW" ;;
+    PERSONAL) LABEL_COLOR="$BRIGHT_GREEN" ;;
+    *)        LABEL_COLOR="$BOLD" ;;
+esac
 
 # Returns an ANSI color code based on a percentage threshold.
 # <50% -> green, 50-80% -> yellow, >80% -> red
@@ -167,7 +176,7 @@ if [ -n "$cwd" ] && command -v gh >/dev/null 2>&1; then
         # Check if cache exists and is fresh (< 60s old)
         use_cache=0
         if [ -f "$cache_file" ]; then
-            cache_mtime=$(stat -c %Y "$cache_file" 2>/dev/null || echo 0)
+            cache_mtime=$(stat -c %Y "$cache_file" 2>/dev/null || stat -f %m "$cache_file" 2>/dev/null || echo 0)
             age=$(( now - cache_mtime ))
             if [ "$age" -lt 60 ]; then
                 use_cache=1
@@ -219,7 +228,7 @@ SEP="${DIM_GRAY} | ${RESET}"
 # Compose status line
 if [ -n "$pr_field" ]; then
     printf '%b%b%b%b%b%b%b%b%b%b%b%b%b%b%b%b%b%b%b%b%b%b%b%b%b%b' \
-        "${BRIGHT_YELLOW}WORK${RESET}" \
+        "${LABEL_COLOR}${LABEL}${RESET}" \
         "$SEP" \
         "${CYAN}ctx:${RESET}" "$ctx_colored" \
         "$SEP" \
@@ -235,7 +244,7 @@ if [ -n "$pr_field" ]; then
         "${RESET}"
 else
     printf '%b%b%b%b%b%b%b%b%b%b%b%b%b%b%b%b%b%b%b%b%b' \
-        "${BRIGHT_YELLOW}WORK${RESET}" \
+        "${LABEL_COLOR}${LABEL}${RESET}" \
         "$SEP" \
         "${CYAN}ctx:${RESET}" "$ctx_colored" \
         "$SEP" \

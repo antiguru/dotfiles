@@ -1,4 +1,7 @@
 {
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
   "permissions": {
     "allow": [
       "Bash(./bin/fmt)",
@@ -76,7 +79,7 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "bash {{ .chezmoi.homeDir }}/.claude/statusline.sh WORK"
+    "command": "bash {{ .chezmoi.homeDir }}/.claude/statusline.sh PERSONAL"
   },
   "enabledPlugins": {
     "rust-analyzer-lsp@claude-plugins-official": true,
@@ -117,5 +120,7 @@
   },
   "tui": "fullscreen",
   "editorMode": "vim",
-  "agentPushNotifEnabled": true
+  "agentPushNotifEnabled": true,
+  "effortLevel": "xhigh",
+  "autoDreamEnabled": true
 }

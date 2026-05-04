@@ -5,6 +5,9 @@
 [user]
 	name = {{ .name }}
 	email = {{ .email }}
+{{- if eq .chezmoi.os "darwin" }}
+	signingkey = ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN7GPWeFDUz9rzVU8A4WtbywHJNZYclST7GGvo56pLrZ
+{{- end }}
 [alias]
 	purr = pull
 [pull]
@@ -16,6 +19,7 @@
 	warndetachedcommit = false
 [core]
 	excludesfile = ~/.gitignore
+	editor = vim
 [diff]
 	algorithm = histogram
 	coloredMove = plain
@@ -31,3 +35,11 @@
 	all = true
 [commit]
 	verbose = true
+{{- if eq .chezmoi.os "darwin" }}
+	gpgsign = true
+
+[gpg]
+	format = ssh
+[gpg "ssh"]
+	program = /Applications/1Password.app/Contents/MacOS/op-ssh-sign
+{{- end }}

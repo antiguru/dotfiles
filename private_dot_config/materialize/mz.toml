@@ -1,0 +1,8 @@
+profile = "staging"
+
+[profiles]
+
+[profiles.staging]
+region = "aws/us-east-1"
+admin-endpoint = "https://admin.staging.cloud.materialize.com/"
+cloud-endpoint = "https://api.staging.cloud.materialize.com/"

@@ -30,6 +30,12 @@ set-option -g history-limit 4000
 # Notifications
 set -g focus-events on
 
+{{- if eq .chezmoi.os "darwin" }}
+
+# Avoid Esc-key lag in vim on macOS terminals
+set -s escape-time 10
+{{- end }}
+
 # Maximize and restore a pane
 #unbind Up bind Up new-window -d -n tmp \; swap-pane -s tmp.1 \; select-window -t tmp
 #unbind Down
@@ -42,12 +48,16 @@ set -g update-environment -r
 #setw -g c0-change-trigger 10
 #setw -g c0-change-interval 250
 
-# copy to xclip
-#bind C-c run "tmux save-buffer - | xclip -selection c"
-#bind C-v run "xclip -o | tmux load-buffer - ; tmux paste-buffer"
+# system clipboard integration
+{{- if eq .chezmoi.os "darwin" }}
+bind C-c run "tmux save-buffer - | pbcopy"
+bind C-v run "pbpaste | tmux load-buffer - ; tmux paste-buffer"
+{{- else }}
+bind C-c run "tmux save-buffer - | xclip -selection c"
+bind C-v run "xclip -o | tmux load-buffer - ; tmux paste-buffer"
+{{- end }}
 
 set -g @plugin 'tmux-plugins/tpm'
 set -g @plugin 'tmux-plugins/tmux-yank'
 
 run '~/.tmux/plugins/tpm/tpm'
-

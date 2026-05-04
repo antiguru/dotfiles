@@ -1,0 +1,18 @@
+# User specific environment and startup programs
+
+typeset -U path
+path=(~/.local/bin ~/.pulumi/bin $path[@])
+
+{{- if eq .chezmoi.os "linux" }}
+export QT_AUTO_SCREEN_SCALE_FACTOR=0
+export QT_SCALE_FACTOR=2
+
+# Added by Toolbox App
+export PATH="$PATH:/home/moritz/.local/share/JetBrains/Toolbox/scripts"
+{{- else if eq .chezmoi.os "darwin" }}
+# Added by Toolbox App
+export PATH="$PATH:/Users/moritz/Library/Application Support/JetBrains/Toolbox/scripts"
+
+# Added by OrbStack: command-line tools and integration
+source ~/.orbstack/shell/init.zsh 2>/dev/null || :
+{{- end }}

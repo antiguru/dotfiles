@@ -1,0 +1,6 @@
+. "$HOME/.cargo/env"
+{{- if eq .chezmoi.os "darwin" }}
+eval "$(/opt/homebrew/bin/brew shellenv)"
+{{- end }}
+
+export PULUMI_SELF_MANAGED_STATE_GZIP=1

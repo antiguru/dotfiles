@@ -1,0 +1,7 @@
+push @extra_pdflatex_options, '-synctex=1' ;
+
+{{- if eq .chezmoi.os "darwin" }}
+$pdf_previewer = 'open -a Skim';
+{{- else }}
+$pdf_previewer = 'zathura';
+{{- end }}
