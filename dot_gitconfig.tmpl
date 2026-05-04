@@ -1,0 +1,33 @@
+[push]
+	default = simple
+[color]
+	ui = auto
+[user]
+	name = {{ .name }}
+	email = {{ .email }}
+[alias]
+	purr = pull
+[pull]
+	ff = only
+[submodule]
+	recurse = true
+[gui]
+	stageuntracked = no
+	warndetachedcommit = false
+[core]
+	excludesfile = ~/.gitignore
+[diff]
+	algorithm = histogram
+	coloredMove = plain
+	renames = true
+	mnemonicPrefix = true
+[column]
+	ui = auto
+[tag]
+	sort = version:refname
+[fetch]
+	prune = true
+	prunetags = false
+	all = true
+[commit]
+	verbose = true

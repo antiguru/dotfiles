@@ -1,0 +1,6 @@
+*.swp
+target
+.idea
+*heaptrack
+prof.*
+profile.json
