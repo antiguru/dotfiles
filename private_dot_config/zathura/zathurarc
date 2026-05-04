@@ -1,0 +1,2 @@
+set synctex true
+set synctex-editor-command "gvim --servername GVIM --remote +%{line} %{input}"

@@ -4,3 +4,4 @@ target
 *heaptrack
 prof.*
 profile.json
+**/.claude/settings.local.json
