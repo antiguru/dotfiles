@@ -68,7 +68,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '[.worktree_path, .main_repo_path] | @tsv' | { IFS=$'\\t' read -r wt main; mkdir -p \"$wt/.claude\" && jq -n --arg dir \"$main\" '{permissions:{additionalDirectories:[$dir]}}' > \"$wt/.claude/settings.local.json\" && printf '%s\\n' \"$wt\"; }"
+            "command": "{{ .chezmoi.homeDir }}/.claude/hooks/worktree-create.sh"
           }
         ]
       }
