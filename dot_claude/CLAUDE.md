@@ -63,6 +63,7 @@ This applies to `~/dev/repos/materialize`.
 * Use `bin/mzcompose list` (or `list-workflows`, `list-compositions`) to see what can be run.
 * Use `bin/mzcompose logs` to access logs of a container.
 * Use `bin/mzcompose down` to stop a composition.
+* Never allow as_conversions, use mz_ore::CastFrom/CastLossy.
 
 * To commit, do the following first:
   * Check that a change is clean, run `bin/lint`.
