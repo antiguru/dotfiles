@@ -45,8 +45,19 @@ git -C "$top" worktree add -b "$name" "$wt" "$base_ref" >>"$LOG" 2>&1 || {
 }
 
 mkdir -p "$wt/.claude" >>"$LOG" 2>&1
-jq -n --arg dir "$top" '{permissions:{additionalDirectories:[$dir]}}' \
-  > "$wt/.claude/settings.local.json" || { echo "write settings failed" >>"$LOG"; exit 1; }
+src="$top/.claude/settings.local.json"
+if [[ -f "$src" ]]; then
+  jq --arg dir "$top" '
+    .permissions = (.permissions // {})
+    | .permissions.additionalDirectories =
+        ((.permissions.additionalDirectories // []) + [$dir] | unique)
+  ' "$src" > "$wt/.claude/settings.local.json" \
+    || { echo "patch settings failed" >>"$LOG"; exit 1; }
+else
+  jq -n --arg dir "$top" '{permissions:{additionalDirectories:[$dir]}}' \
+    > "$wt/.claude/settings.local.json" \
+    || { echo "write settings failed" >>"$LOG"; exit 1; }
+fi
 
 printf '%s\n' "$wt"
 echo "ok" >>"$LOG"
