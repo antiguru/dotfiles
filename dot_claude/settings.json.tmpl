@@ -65,7 +65,7 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "bash {{ .chezmoi.homeDir }}/.claude/statusline.sh WORK"
+    "command": "/usr/bin/python3 {{ .chezmoi.homeDir }}/.claude/statusline.py WORK"
   },
   "enabledPlugins": {
     "rust-analyzer-lsp@claude-plugins-official": true,
