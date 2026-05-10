@@ -60,6 +60,7 @@
       "WebFetch(domain:docs.rs)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:registry.npmjs.org)",
+      "mcp__binutils",
       "mcp__lumen",
       "mcp__polarsignals",
       "mcp__pollard"
@@ -90,21 +91,19 @@
     "claude-code-setup@claude-plugins-official": true,
     "claude-md-management@claude-plugins-official": true,
     "superpowers@claude-plugins-official": true,
-    "github@claude-plugins-official": false,
+    "github@claude-plugins-official": true,
     "linear@claude-plugins-official": false,
-    "timely-skill@timely-dataflow-skill": true,
-    "columnar-skill@timely-dataflow-skill": true,
     "lumen@ory": true,
-    "caveman@caveman": true
+    "caveman@caveman": true,
+    "mcp-server-dev@claude-plugins-official": true,
+    "plugin-dev@claude-plugins-official": true,
+    "binutils-mcp@antiguru-tools": true,
+    "pollard@antiguru-tools": true,
+    "differential-skill@antiguru-tools": true,
+    "columnar-skill@antiguru-tools": true,
+    "timely-skill@antiguru-tools": true
   },
   "extraKnownMarketplaces": {
-    "timely-dataflow-skill": {
-      "source": {
-        "source": "github",
-        "repo": "antiguru/timely-skill"
-      },
-      "autoUpdate": true
-    },
     "ory": {
       "source": {
         "source": "github",
@@ -115,6 +114,19 @@
       "source": {
         "source": "github",
         "repo": "JuliusBrussee/caveman"
+      }
+    },
+    "pollard": {
+      "source": {
+        "source": "github",
+        "repo": "antiguru/pollard"
+      },
+      "autoUpdate": true
+    },
+    "antiguru-tools": {
+      "source": {
+        "source": "github",
+        "repo": "antiguru/antiguru-tools"
       }
     }
   },

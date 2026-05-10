@@ -1,14 +1,6 @@
 {
   "permissions": {
     "allow": [
-      "Bash(./bin/fmt)",
-      "Bash(./bin/lint)",
-      "Bash(bin/ci-builder run:*)",
-      "Bash(bin/fmt)",
-      "Bash(bin/lint:*)",
-      "Bash(bin/mzcompose:*)",
-      "Bash(bin/pyactivate:*)",
-      "Bash(bin/sqllogictest:*)",
       "Bash(bk artifacts download:*)",
       "Bash(bk artifacts list:*)",
       "Bash(bk build list:*)",
@@ -28,9 +20,6 @@
       "Bash(cargo run:*)",
       "Bash(cargo rustc:*)",
       "Bash(cargo test:*)",
-      "Bash(ci/test/lint-doc.sh:*)",
-      "Bash(ci/test/lint-docs.sh:*)",
-      "Bash(ci/test/lint-func-docs.sh:*)",
       "Bash(find:*)",
       "Bash(gh pr checks:*)",
       "Bash(gh pr create:*)",
@@ -87,22 +76,16 @@
     "claude-code-setup@claude-plugins-official": true,
     "claude-md-management@claude-plugins-official": true,
     "superpowers@claude-plugins-official": true,
-    "github@claude-plugins-official": false,
+    "github@claude-plugins-official": true,
     "linear@claude-plugins-official": false,
-    "timely-skill@timely-dataflow-skill": true,
-    "columnar-skill@timely-dataflow-skill": true,
     "lumen@ory": true,
     "caveman@caveman": true,
-    "pollard@antiguru": true
+    "plugin-dev@claude-plugins-official": true,
+    "mcp-server-dev@claude-plugins-official": true,
+    "binutils-mcp@antiguru-tools": true,
+    "pollard@antiguru-tools": true
   },
   "extraKnownMarketplaces": {
-    "timely-dataflow-skill": {
-      "source": {
-        "source": "github",
-        "repo": "antiguru/timely-skill"
-      },
-      "autoUpdate": true
-    },
     "ory": {
       "source": {
         "source": "github",
@@ -115,10 +98,17 @@
         "repo": "JuliusBrussee/caveman"
       }
     },
-    "antiguru": {
+    "pollard": {
       "source": {
         "source": "github",
         "repo": "antiguru/pollard"
+      },
+      "autoUpdate": true
+    },
+    "antiguru-tools": {
+      "source": {
+        "source": "github",
+        "repo": "antiguru/antiguru-tools"
       }
     }
   },
