@@ -91,17 +91,15 @@ def parse_resets_at(v: Any) -> int | None:
 
 
 def fmt_reset_time(resets_at: Any, include_day: bool = False) -> str:
-    """Return colored ' 3:30am' (or ' Mon 3:30am' with include_day) suffix, or ''.
+    """Return colored ' 15:30' (or ' Mon 15:30' with include_day) suffix, or ''.
 
-    Time is rendered in the local timezone.
+    Time is rendered in the local timezone, 24-hour format.
     """
     epoch = parse_resets_at(resets_at)
     if epoch is None:
         return ""
     dt = datetime.fromtimestamp(epoch)
-    hour12 = dt.hour % 12 or 12
-    ampm = "am" if dt.hour < 12 else "pm"
-    t = f"{hour12}:{dt.minute:02d}{ampm}"
+    t = f"{dt.hour:02d}:{dt.minute:02d}"
     if include_day:
         t = f"{dt.strftime('%a')} {t}"
     return f" {DIM_GRAY}{t}{RESET}"
