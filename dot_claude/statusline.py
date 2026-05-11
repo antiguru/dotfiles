@@ -53,6 +53,13 @@ def fmt_tokens(n: int) -> str:
     return f"{n // 1000}k"
 
 
+def fmt_count(n: int) -> str:
+    """Like fmt_tokens but renders <1000 as a raw integer (avoid `0k` for small counts)."""
+    if n < 1000:
+        return str(n)
+    return fmt_tokens(n)
+
+
 def color_pct_field(val: str) -> str:
     """Color a percentage field like '45%' by threshold; dash stays dim."""
     if val == "-":
@@ -206,10 +213,12 @@ def _find_usage(obj: Any) -> dict | None:
     return None
 
 
-def last_usage_from_transcript(path: str) -> int:
-    """Sum input + cache_read + cache_creation from the last 'usage' block in a JSONL transcript."""
+def last_usage_from_transcript(path: str) -> tuple[int, int, int] | None:
+    """Return (input_tokens, cache_creation_input_tokens, cache_read_input_tokens) from the last
+    'usage' block in a JSONL transcript, or None if no usage was found.
+    """
     if not path or not os.path.isfile(path):
-        return 0
+        return None
     last_usage: dict | None = None
     try:
         with open(path, "r", encoding="utf-8", errors="replace") as fh:
@@ -225,13 +234,13 @@ def last_usage_from_transcript(path: str) -> int:
                 if u is not None:
                     last_usage = u
     except OSError:
-        return 0
+        return None
     if not last_usage:
-        return 0
+        return None
     return (
-        int(last_usage.get("input_tokens", 0) or 0)
-        + int(last_usage.get("cache_read_input_tokens", 0) or 0)
-        + int(last_usage.get("cache_creation_input_tokens", 0) or 0)
+        int(last_usage.get("input_tokens", 0) or 0),
+        int(last_usage.get("cache_creation_input_tokens", 0) or 0),
+        int(last_usage.get("cache_read_input_tokens", 0) or 0),
     )
 
 
@@ -274,18 +283,41 @@ def main() -> int:
     if not isinstance(ctx_window, int) or ctx_window <= 0:
         ctx_window = 1_000_000 if "[1m]" in model_id else 200_000
 
-    # Token counts: prefer JSON total_input_tokens (exact), else transcript JSONL (exact),
-    # else back-derive from used_percentage (approximate; marked with '~').
+    # Token counts. Three input-side categories fill the context window:
+    #   input_tokens                 — fresh, not in cache this turn
+    #   cache_creation_input_tokens  — newly written to cache this turn
+    #   cache_read_input_tokens      — read from cache
+    # output_tokens is excluded (becomes part of context only on the next turn's input).
+    # Sources, in priority order:
+    #   1. JSON context_window.current_usage  (exact, full breakdown)
+    #   2. JSON context_window.total_input_tokens  (exact, total only)
+    #   3. transcript JSONL last usage block  (exact, full breakdown)
+    #   4. JSON context_window.used_percentage  (approximate; marked with '~', no breakdown)
     tokens_exact = False
     total_tokens = 0
-    json_total = context_window.get("total_input_tokens")
-    if isinstance(json_total, (int, float)) and json_total > 0:
-        total_tokens = int(json_total)
-        tokens_exact = True
-    elif transcript_path:
-        t = last_usage_from_transcript(transcript_path)
-        if t > 0:
-            total_tokens = t
+    breakdown: tuple[int, int, int] | None = None
+
+    cu = context_window.get("current_usage")
+    if isinstance(cu, dict):
+        in_t = int(cu.get("input_tokens") or 0)
+        cc_t = int(cu.get("cache_creation_input_tokens") or 0)
+        cr_t = int(cu.get("cache_read_input_tokens") or 0)
+        if in_t + cc_t + cr_t > 0:
+            breakdown = (in_t, cc_t, cr_t)
+            total_tokens = in_t + cc_t + cr_t
+            tokens_exact = True
+
+    if total_tokens == 0:
+        json_total = context_window.get("total_input_tokens")
+        if isinstance(json_total, (int, float)) and json_total > 0:
+            total_tokens = int(json_total)
+            tokens_exact = True
+
+    if total_tokens == 0 and transcript_path:
+        b = last_usage_from_transcript(transcript_path)
+        if b is not None and sum(b) > 0:
+            breakdown = b
+            total_tokens = sum(b)
             tokens_exact = True
 
     ctx_pct = "-"
@@ -302,7 +334,12 @@ def main() -> int:
         prefix = "" if tokens_exact else "~"
         # Highlight when usage has crossed the 200k threshold (extended-context billing tier).
         color = YELLOW if total_tokens > 200_000 else DIM_GRAY
-        tokens_display = f" {color}{prefix}{fmt_tokens(total_tokens)}/{fmt_tokens(ctx_window)}{RESET}"
+        if breakdown is not None:
+            in_t, cc_t, cr_t = breakdown
+            parts_txt = f"({fmt_count(in_t)} + {fmt_count(cc_t)} + {fmt_count(cr_t)})"
+            tokens_display = f" {color}{prefix}{parts_txt}/{fmt_tokens(ctx_window)}{RESET}"
+        else:
+            tokens_display = f" {color}{prefix}{fmt_tokens(total_tokens)}/{fmt_tokens(ctx_window)}{RESET}"
 
     # Rate limits. 5h has a fixed window; 7d is a rolling window — pace delta for 7d is shown but
     # the semantics are "% used vs % of rolling window elapsed since oldest tracked usage."
