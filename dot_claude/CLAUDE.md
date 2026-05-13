@@ -40,6 +40,10 @@
   Double-check that the worktree's revision matches the expected revision.
 * Add local ignored files to .git/info/exclude, and global (for all users) ignores to .gitignore
 
+# Github
+
+* Prefer github MCP over `gh` tool.
+
 # Rust
 
 * No unsafe, unless strictly needed.
