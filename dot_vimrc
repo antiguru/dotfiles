@@ -1,9 +1,7 @@
-execute pathogen#infect()
-
 filetype plugin on
 syntax on
 
-filetype plugin indent on 
+filetype plugin indent on
 syntax enable
 
 set tabstop=4
@@ -41,13 +39,8 @@ let g:tex_indent_brace=0
 
 "set tw=80
 "Always limit the width of text to 80
-if executable('rls')
-    au User lsp_setup call lsp#register_server({
-            \ 'name': 'rls',
-            \ 'cmd': {server_info->['rustup', 'run', 'nightly', 'rls']},
-            \ 'whitelist': ['rust'],
-            \ })
-endif
 
-
+" Spell: en + de. Missing .spl files auto-download via builtin
+" spellfile.vim plugin (will prompt on first use).
+set spellfile=~/.vim/spell/en.utf-8.add
 set spell spelllang=en_us,de_de
