@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# claude-jail: run Claude Code inside a bwrap jail.
+#
+# Visible/writable: cwd + ~/dev/repos, Claude config dir, ~/.cargo,
+# Docker socket, ssh agent + creds (ro), network.
+# Everything else in $HOME hidden behind tmpfs.
+#
+# Honors CLAUDE_CONFIG_DIR (e.g. claude-personal alias).
+# Design: ~/.claude/plans/claude-jail.md
+set -euo pipefail
+
+config_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+cwd="$(pwd)"
+uid="$(id -u)"
+
+args=(
+  # System, read-only (merged-usr layout).
+  --ro-bind /usr /usr
+  --symlink usr/bin /bin
+  --symlink usr/lib /lib
+  --symlink usr/lib64 /lib64
+  --symlink usr/sbin /sbin
+  --ro-bind /etc /etc
+  # Userns maps root-owned files to nobody; ssh rejects includes with
+  # "Bad owner" — mask the include dir.
+  --tmpfs /etc/ssh/ssh_config.d
+  --proc /proc
+  --dev /dev
+  # Hide /run and /var; recreate the /var/run -> /run symlink.
+  --tmpfs /run
+  --tmpfs /var
+  --symlink ../run /var/run
+  --perms 0700 --dir "/run/user/$uid"
+  # Docker daemon resolves -v paths on the HOST, so /tmp and repo paths
+  # must be identical inside and outside the jail.
+  --bind /tmp /tmp
+  --bind /var/run/docker.sock /run/docker.sock
+  # Hide $HOME, then bind back only what is needed.
+  --tmpfs "$HOME"
+  --bind "$HOME/dev/repos" "$HOME/dev/repos"
+  --bind "$config_dir" "$config_dir"
+  --bind-try "$HOME/.claude.json" "$HOME/.claude.json"
+  --bind-try "$HOME/.claude.json.backup" "$HOME/.claude.json.backup"
+  --bind "$HOME/.cargo" "$HOME/.cargo"
+  --ro-bind "$HOME/.rustup" "$HOME/.rustup"
+  # Claude launcher + versions; rw so auto-update works.
+  --bind "$HOME/.local/bin" "$HOME/.local/bin"
+  --bind "$HOME/.local/share/claude" "$HOME/.local/share/claude"
+  # Credentials for git push / gh, read-only.
+  --ro-bind-try "$HOME/.ssh" "$HOME/.ssh"
+  --ro-bind-try "$HOME/.gitconfig" "$HOME/.gitconfig"
+  --ro-bind-try "$HOME/.config/gh" "$HOME/.config/gh"
+  --ro-bind-try "$HOME/.config/git" "$HOME/.config/git"
+  # Shell init, read-only.
+  --ro-bind-try "$HOME/.zshrc" "$HOME/.zshrc"
+  --ro-bind-try "$HOME/.zshenv" "$HOME/.zshenv"
+  --ro-bind-try "$HOME/.oh-my-zsh" "$HOME/.oh-my-zsh"
+)
+
+# ssh agent socket.
+if [[ -n "${SSH_AUTH_SOCK:-}" && -S "$SSH_AUTH_SOCK" ]]; then
+  args+=(--bind "$SSH_AUTH_SOCK" "$SSH_AUTH_SOCK")
+fi
+
+# cwd outside ~/dev/repos: bind it at the same path.
+case "$cwd" in
+  "$HOME/dev/repos" | "$HOME/dev/repos"/*) ;;
+  *) args+=(--bind "$cwd" "$cwd") ;;
+esac
+
+args+=(
+  --chdir "$cwd"
+  --unshare-all
+  --share-net
+  --die-with-parent
+)
+
+# Jail is the permission boundary; skip per-tool prompts inside.
+# Known holes (accepted): docker.sock = host root; creds + network live inside.
+exec bwrap "${args[@]}" -- claude --dangerously-skip-permissions "$@"
