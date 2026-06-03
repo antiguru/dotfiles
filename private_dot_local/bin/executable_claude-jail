@@ -13,6 +13,17 @@ config_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 cwd="$(pwd)"
 uid="$(id -u)"
 
+# bwrap maps only the current gid into the user namespace. Re-exec with the
+# docker group as primary gid so docker.sock stats as its real gid inside the
+# jail instead of overflow 65534 (nobody) — bin/ci-builder passes that gid to
+# `docker run --user`, and 65534 collides with the image's nogroup.
+# Trade-off: files created inside the jail get group docker on the host.
+docker_gid="$(stat -c %g /var/run/docker.sock 2>/dev/null || true)"
+if [[ -n "$docker_gid" && "$(id -g)" != "$docker_gid" ]] \
+    && id -G | tr ' ' '\n' | grep -qx "$docker_gid"; then
+  exec sg docker -c "$(printf '%q ' "$0" "$@")"
+fi
+
 args=(
   # System, read-only (merged-usr layout).
   --ro-bind /usr /usr
