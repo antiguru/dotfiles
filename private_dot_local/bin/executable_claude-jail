@@ -59,6 +59,8 @@ args=(
   --bind "$HOME/.local/share/claude" "$HOME/.local/share/claude"
   # Credentials for git push / gh, read-only.
   --ro-bind-try "$HOME/.ssh" "$HOME/.ssh"
+  # Materialize license key file ($MZ_LICENSE_KEY points here).
+  --ro-bind-try "${MZ_LICENSE_KEY:-$HOME/.mz-license-key}" "${MZ_LICENSE_KEY:-$HOME/.mz-license-key}"
   --ro-bind-try "$HOME/.gitconfig" "$HOME/.gitconfig"
   --ro-bind-try "$HOME/.config/gh" "$HOME/.config/gh"
   --ro-bind-try "$HOME/.config/git" "$HOME/.config/git"
