@@ -1,7 +1,3 @@
 {{- if ne .chezmoi.os "darwin" }}
 .config/karabiner/**
 {{- end }}
-{{- if ne .chezmoi.os "linux" }}
-{{/* bwrap-based, Linux-only; macOS variant would be a separate script */}}
-.local/bin/claude-jail
-{{- end }}

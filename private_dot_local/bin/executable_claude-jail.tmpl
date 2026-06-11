@@ -1,0 +1,201 @@
+{{- if eq .chezmoi.os "linux" -}}
+#!/usr/bin/env bash
+# claude-jail: run Claude Code inside a bwrap jail.
+#
+# Visible/writable: cwd + ~/dev/repos, Claude config dir, ~/.cargo,
+# Docker socket, ssh agent + creds (ro), network.
+# Everything else in $HOME hidden behind tmpfs.
+#
+# Honors CLAUDE_CONFIG_DIR (e.g. claude-personal alias).
+# Design: ~/.claude/plans/claude-jail.md
+set -euo pipefail
+
+config_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+cwd="$(pwd)"
+uid="$(id -u)"
+
+# bwrap maps only the current gid into the user namespace. Re-exec with the
+# docker group as primary gid so docker.sock stats as its real gid inside the
+# jail instead of overflow 65534 (nobody) — bin/ci-builder passes that gid to
+# `docker run --user`, and 65534 collides with the image's nogroup.
+# Trade-off: files created inside the jail get group docker on the host.
+docker_gid="$(stat -c %g /var/run/docker.sock 2>/dev/null || true)"
+if [[ -n "$docker_gid" && "$(id -g)" != "$docker_gid" ]] \
+    && id -G | tr ' ' '\n' | grep -qx "$docker_gid"; then
+  exec sg docker -c "$(printf '%q ' "$0" "$@")"
+fi
+
+args=(
+  # System, read-only (merged-usr layout).
+  --ro-bind /usr /usr
+  --symlink usr/bin /bin
+  --symlink usr/lib /lib
+  --symlink usr/lib64 /lib64
+  --symlink usr/sbin /sbin
+  --ro-bind /etc /etc
+  # Userns maps root-owned files to nobody; ssh rejects includes with
+  # "Bad owner" — mask the include dir.
+  --tmpfs /etc/ssh/ssh_config.d
+  --proc /proc
+  --dev /dev
+  # Hide /run and /var; recreate the /var/run -> /run symlink.
+  --tmpfs /run
+  --tmpfs /var
+  --symlink ../run /var/run
+  --perms 0700 --dir "/run/user/$uid"
+  # Docker daemon resolves -v paths on the HOST, so /tmp and repo paths
+  # must be identical inside and outside the jail.
+  --bind /tmp /tmp
+  --bind /var/run/docker.sock /run/docker.sock
+  # Hide $HOME, then bind back only what is needed.
+  --tmpfs "$HOME"
+  --bind "$HOME/dev/repos" "$HOME/dev/repos"
+  --bind "$config_dir" "$config_dir"
+  --bind-try "$HOME/.claude.json" "$HOME/.claude.json"
+  --bind-try "$HOME/.claude.json.backup" "$HOME/.claude.json.backup"
+  --bind "$HOME/.cargo" "$HOME/.cargo"
+  --ro-bind "$HOME/.rustup" "$HOME/.rustup"
+  # Claude launcher + versions; rw so auto-update works.
+  --bind "$HOME/.local/bin" "$HOME/.local/bin"
+  --bind "$HOME/.local/share/claude" "$HOME/.local/share/claude"
+  # Credentials for git push / gh, read-only.
+  --ro-bind-try "$HOME/.ssh" "$HOME/.ssh"
+  # Materialize license key file ($MZ_LICENSE_KEY points here).
+  --ro-bind-try "${MZ_LICENSE_KEY:-$HOME/.mz-license-key}" "${MZ_LICENSE_KEY:-$HOME/.mz-license-key}"
+  --ro-bind-try "$HOME/.gitconfig" "$HOME/.gitconfig"
+  --ro-bind-try "$HOME/.config/gh" "$HOME/.config/gh"
+  --ro-bind-try "$HOME/.config/git" "$HOME/.config/git"
+  # Shell init, read-only.
+  --ro-bind-try "$HOME/.zshrc" "$HOME/.zshrc"
+  --ro-bind-try "$HOME/.zshenv" "$HOME/.zshenv"
+  --ro-bind-try "$HOME/.oh-my-zsh" "$HOME/.oh-my-zsh"
+)
+
+# ssh agent socket.
+if [[ -n "${SSH_AUTH_SOCK:-}" && -S "$SSH_AUTH_SOCK" ]]; then
+  args+=(--bind "$SSH_AUTH_SOCK" "$SSH_AUTH_SOCK")
+fi
+
+# cwd outside ~/dev/repos: bind it at the same path.
+case "$cwd" in
+  "$HOME/dev/repos" | "$HOME/dev/repos"/*) ;;
+  *) args+=(--bind "$cwd" "$cwd") ;;
+esac
+
+args+=(
+  --chdir "$cwd"
+  --unshare-all
+  --share-net
+  --die-with-parent
+)
+
+# Jail is the permission boundary; skip per-tool prompts inside.
+# Known holes (accepted): docker.sock = host root; creds + network live inside.
+exec bwrap "${args[@]}" -- claude --dangerously-skip-permissions "$@"
+{{- else if eq .chezmoi.os "darwin" -}}
+#!/usr/bin/env bash
+# claude-jail (macOS): run Claude Code inside a sandbox-exec (Seatbelt) jail.
+#
+# Read+write: cwd, ~/dev/repos, Claude config dir, ~/.cargo, temp.
+# Readable:   everything outside $HOME (system dirs etc.); inside $HOME only
+#             ~/.rustup, shell init, git/gh config, ~/.ssh/known_hosts + config.
+# Denied:     all other $HOME reads (~/.ssh keys, ~/Documents, ~/Library, ...)
+#             and all writes outside the read+write set.
+# Network:    unrestricted outbound. Docker: opt-in via leading --docker.
+#
+# Honors CLAUDE_CONFIG_DIR (e.g. claude-personal alias).
+# Design: docs/superpowers/specs/2026-06-04-claude-jail-macos-design.md
+#
+# Accepted holes: world-readable system files stay readable (not a syscall jail);
+# no egress filtering; --docker = full host compromise (orbstack root + -v /:/host).
+#
+# Uses sandbox-exec(1)/Seatbelt — Apple-deprecated but present through macOS 26.
+# If a future release removes it, the exec below fails; replace with another jail.
+set -euo pipefail
+
+config_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+cwd="$(pwd)"
+
+# Opt-in docker: must be the first argument.
+docker=0
+if [[ "${1:-}" == "--docker" ]]; then
+  docker=1
+  shift
+fi
+
+# A double-quote, backslash, or newline in a path interpolated into the SBPL
+# profile below would break the string literal or inject rules. config_dir comes
+# from CLAUDE_CONFIG_DIR (user-controlled), so guard it too; $HOME is set by the
+# trusted login session.
+for _p in "$cwd" "$config_dir"; do
+  case "$_p" in
+    *'"'* | *'\'*) echo "claude-jail: refusing path with quote or backslash: $_p" >&2; exit 1 ;;
+  esac
+  if [[ "$_p" == *$'\n'* ]]; then
+    echo "claude-jail: refusing path with newline: $_p" >&2
+    exit 1
+  fi
+done
+
+# OrbStack docker socket, real path (Seatbelt resolves symlinks).
+# OrbStack-specific; Docker Desktop would instead be ~/.docker/run/docker.sock.
+docker_sock="$HOME/.orbstack/run/docker.sock"
+
+profile="(version 1)
+(deny default)
+
+;; syscalls/services needed to run node + tools (not the security boundary)
+(allow process-fork process-exec*)
+;; signal unrestricted: unlike the linux branch (bwrap PID namespace) macOS has no
+;; PID isolation, so this also permits signaling other same-user processes — an
+;; accepted annoyance, not a host-compromise vector. (target self) breaks subprocesses.
+(allow signal)
+(allow sysctl-read)
+(allow mach-lookup)
+(allow file-read-metadata)
+(allow network*)
+
+;; reads: broad. dyld + frameworks touch many system paths and enumerating them
+;; is fragile, so allow read everywhere, then deny \$HOME below. The security
+;; boundary is \$HOME — re-allowed only for the workspace + explicit allowlist.
+(allow file-read*)
+(deny file-read* (subpath \"$HOME\"))
+
+;; writable system locations (temp, devices)
+(allow file-read* file-write* (subpath \"/dev\"))
+(allow file-read* file-write* (subpath \"/private/tmp\")
+                              (subpath \"/private/var/folders\"))
+
+;; workspace + state (rw)
+(allow file-read* file-write* (subpath \"$cwd\"))
+(allow file-read* file-write* (subpath \"$HOME/dev/repos\"))
+(allow file-read* file-write* (subpath \"$config_dir\"))
+(allow file-read* file-write* (literal \"$HOME/.claude.json\")
+                              (literal \"$HOME/.claude.json.backup\"))
+(allow file-read* file-write* (subpath \"$HOME/.cargo\"))
+
+;; read-only: toolchain, shell init, git/gh config
+(allow file-read* (subpath \"$HOME/.rustup\")
+                  (literal \"$HOME/.zshrc\") (literal \"$HOME/.zshenv\")
+                  (subpath \"$HOME/.oh-my-zsh\")
+                  (literal \"$HOME/.gitconfig\") (subpath \"$HOME/.config/git\")
+                  (subpath \"$HOME/.config/gh\"))
+
+;; ssh: agent only; known_hosts + config ro; private keys not allowed
+(allow file-read* (literal \"$HOME/.ssh/known_hosts\") (literal \"$HOME/.ssh/config\"))
+"
+# docker: orbstack socket connect denied unless opted in (lift with --docker).
+# Appended after (allow network*) so last-match-wins applies.
+if [[ "$docker" -eq 0 ]]; then
+  profile+="
+;; docker: orbstack socket connect denied (lift with --docker)
+(deny network-outbound (literal \"$docker_sock\"))
+"
+fi
+
+exec sandbox-exec -p "$profile" claude --dangerously-skip-permissions "$@"
+{{- else -}}
+#!/usr/bin/env bash
+echo "claude-jail: unsupported OS" >&2
+exit 1
+{{- end -}}
