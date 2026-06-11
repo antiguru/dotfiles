@@ -1,3 +1,4 @@
+{{- if eq .chezmoi.os "linux" -}}
 #!/usr/bin/env bash
 # claude-jail: run Claude Code inside a bwrap jail.
 #
@@ -91,3 +92,91 @@ args+=(
 # Jail is the permission boundary; skip per-tool prompts inside.
 # Known holes (accepted): docker.sock = host root; creds + network live inside.
 exec bwrap "${args[@]}" -- claude --dangerously-skip-permissions "$@"
+{{- else if eq .chezmoi.os "darwin" -}}
+#!/usr/bin/env bash
+# claude-jail (macOS): run Claude Code inside a sandbox-exec (Seatbelt) jail.
+#
+# Read+write: cwd, ~/dev/repos, Claude config dir, ~/.cargo, temp.
+# Read-only:  system dirs, ~/.rustup, shell init, git/gh config,
+#             ~/.ssh/known_hosts + ~/.ssh/config.
+# Denied:     everything else in $HOME (~/.ssh keys, ~/Documents, ~/Library, ...).
+# Network:    unrestricted outbound. Docker: opt-in via leading --docker.
+#
+# Honors CLAUDE_CONFIG_DIR (e.g. claude-personal alias).
+# Design: docs/superpowers/specs/2026-06-04-claude-jail-macos-design.md
+#
+# Accepted holes: world-readable system files stay readable (not a syscall jail);
+# no egress filtering; --docker = full host compromise (orbstack root + -v /:/host).
+set -euo pipefail
+
+config_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+cwd="$(pwd)"
+
+# Opt-in docker: must be the first argument.
+docker=0
+if [[ "${1:-}" == "--docker" ]]; then
+  docker=1
+  shift
+fi
+
+# A double-quote in cwd would break the SBPL string literal below.
+case "$cwd" in
+  *'"'*) echo "claude-jail: refusing cwd containing a double-quote: $cwd" >&2; exit 1 ;;
+esac
+
+# OrbStack docker socket, real path (Seatbelt resolves symlinks).
+docker_sock="$HOME/.orbstack/run/docker.sock"
+
+# Docker socket connect denied unless opted in.
+docker_rule=""
+if [[ "$docker" -eq 0 ]]; then
+  docker_rule="(deny network-outbound (literal \"$docker_sock\"))"
+fi
+
+profile="(version 1)
+(deny default)
+
+;; syscalls/services needed to run node + tools (not the security boundary)
+(allow process-fork process-exec*)
+(allow signal (target self))
+(allow sysctl-read)
+(allow mach-lookup)
+(allow file-read-metadata)
+(allow network*)
+
+;; system reads: needed to load binaries and frameworks
+(allow file-read* (subpath \"/usr\") (subpath \"/System\") (subpath \"/Library\")
+                  (subpath \"/bin\") (subpath \"/sbin\") (subpath \"/opt/homebrew\")
+                  (subpath \"/private/etc\") (subpath \"/private/var/db\"))
+(allow file-read* file-write* (subpath \"/dev\"))
+(allow file-read* file-write* (subpath \"/private/tmp\")
+                              (subpath \"/private/var/folders\"))
+
+;; workspace + state (rw)
+(allow file-read* file-write* (subpath \"$cwd\"))
+(allow file-read* file-write* (subpath \"$HOME/dev/repos\"))
+(allow file-read* file-write* (subpath \"$config_dir\"))
+(allow file-read* file-write* (literal \"$HOME/.claude.json\")
+                              (literal \"$HOME/.claude.json.backup\"))
+(allow file-read* file-write* (subpath \"$HOME/.cargo\"))
+
+;; read-only: toolchain, shell init, git/gh config
+(allow file-read* (subpath \"$HOME/.rustup\")
+                  (literal \"$HOME/.zshrc\") (literal \"$HOME/.zshenv\")
+                  (subpath \"$HOME/.oh-my-zsh\")
+                  (literal \"$HOME/.gitconfig\") (subpath \"$HOME/.config/git\")
+                  (subpath \"$HOME/.config/gh\"))
+
+;; ssh: agent only; known_hosts + config ro; private keys not allowed
+(allow file-read* (literal \"$HOME/.ssh/known_hosts\") (literal \"$HOME/.ssh/config\"))
+
+;; docker: orbstack socket connect denied unless --docker
+$docker_rule
+"
+
+exec sandbox-exec -p "$profile" claude --dangerously-skip-permissions "$@"
+{{- else -}}
+#!/usr/bin/env bash
+echo "claude-jail: unsupported OS" >&2
+exit 1
+{{- end -}}
