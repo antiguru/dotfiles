@@ -163,6 +163,7 @@ profile="(version 1)
 
 ;; writable system locations (temp, devices)
 (allow file-read* file-write* (subpath \"/dev\"))
+(allow file-ioctl (subpath \"/dev\"))   ;; tty raw mode (setRawMode/tcsetattr); TUIs need it
 (allow file-read* file-write* (subpath \"/private/tmp\")
                               (subpath \"/private/var/folders\"))
 

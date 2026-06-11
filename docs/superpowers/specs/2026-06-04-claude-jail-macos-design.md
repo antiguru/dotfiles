@@ -88,6 +88,7 @@ The profile is passed inline via `-p`; no temp file.
 
 ;; writable system locations (temp, devices)
 (allow file-read* file-write* (subpath "/dev"))          ; tty, null, urandom, ptys
+(allow file-ioctl (subpath "/dev"))                      ; tty raw mode (setRawMode); TUIs need it
 (allow file-read* file-write* (subpath "/private/tmp")
                               (subpath "/private/var/folders"))   ; $TMPDIR
 
