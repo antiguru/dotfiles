@@ -97,9 +97,10 @@ exec bwrap "${args[@]}" -- claude --dangerously-skip-permissions "$@"
 # claude-jail (macOS): run Claude Code inside a sandbox-exec (Seatbelt) jail.
 #
 # Read+write: cwd, ~/dev/repos, Claude config dir, ~/.cargo, temp.
-# Read-only:  system dirs, ~/.rustup, shell init, git/gh config,
-#             ~/.ssh/known_hosts + ~/.ssh/config.
-# Denied:     everything else in $HOME (~/.ssh keys, ~/Documents, ~/Library, ...).
+# Readable:   everything outside $HOME (system dirs etc.); inside $HOME only
+#             ~/.rustup, shell init, git/gh config, ~/.ssh/known_hosts + config.
+# Denied:     all other $HOME reads (~/.ssh keys, ~/Documents, ~/Library, ...)
+#             and all writes outside the read+write set.
 # Network:    unrestricted outbound. Docker: opt-in via leading --docker.
 #
 # Honors CLAUDE_CONFIG_DIR (e.g. claude-personal alias).
@@ -154,10 +155,13 @@ profile="(version 1)
 (allow file-read-metadata)
 (allow network*)
 
-;; system reads: needed to load binaries and frameworks
-(allow file-read* (subpath \"/usr\") (subpath \"/System\") (subpath \"/Library\")
-                  (subpath \"/bin\") (subpath \"/sbin\") (subpath \"/opt/homebrew\")
-                  (subpath \"/private/etc\") (subpath \"/private/var/db\"))
+;; reads: broad. dyld + frameworks touch many system paths and enumerating them
+;; is fragile, so allow read everywhere, then deny \$HOME below. The security
+;; boundary is \$HOME — re-allowed only for the workspace + explicit allowlist.
+(allow file-read*)
+(deny file-read* (subpath \"$HOME\"))
+
+;; writable system locations (temp, devices)
 (allow file-read* file-write* (subpath \"/dev\"))
 (allow file-read* file-write* (subpath \"/private/tmp\")
                               (subpath \"/private/var/folders\"))
