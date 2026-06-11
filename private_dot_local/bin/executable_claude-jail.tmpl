@@ -107,6 +107,9 @@ exec bwrap "${args[@]}" -- claude --dangerously-skip-permissions "$@"
 #
 # Accepted holes: world-readable system files stay readable (not a syscall jail);
 # no egress filtering; --docker = full host compromise (orbstack root + -v /:/host).
+#
+# Uses sandbox-exec(1)/Seatbelt — Apple-deprecated but present through macOS 26.
+# If a future release removes it, the exec below fails; replace with another jail.
 set -euo pipefail
 
 config_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
@@ -119,26 +122,33 @@ if [[ "${1:-}" == "--docker" ]]; then
   shift
 fi
 
-# A double-quote in cwd would break the SBPL string literal below.
-case "$cwd" in
-  *'"'*) echo "claude-jail: refusing cwd containing a double-quote: $cwd" >&2; exit 1 ;;
-esac
+# A double-quote, backslash, or newline in a path interpolated into the SBPL
+# profile below would break the string literal or inject rules. config_dir comes
+# from CLAUDE_CONFIG_DIR (user-controlled), so guard it too; $HOME is set by the
+# trusted login session.
+for _p in "$cwd" "$config_dir"; do
+  case "$_p" in
+    *'"'* | *'\'*) echo "claude-jail: refusing path with quote or backslash: $_p" >&2; exit 1 ;;
+  esac
+  if [[ "$_p" == *$'\n'* ]]; then
+    echo "claude-jail: refusing path with newline: $_p" >&2
+    exit 1
+  fi
+done
 
 # OrbStack docker socket, real path (Seatbelt resolves symlinks).
+# OrbStack-specific; Docker Desktop would instead be ~/.docker/run/docker.sock.
 docker_sock="$HOME/.orbstack/run/docker.sock"
-
-# Docker socket connect denied unless opted in.
-docker_rule=""
-if [[ "$docker" -eq 0 ]]; then
-  docker_rule="(deny network-outbound (literal \"$docker_sock\"))"
-fi
 
 profile="(version 1)
 (deny default)
 
 ;; syscalls/services needed to run node + tools (not the security boundary)
 (allow process-fork process-exec*)
-(allow signal (target self))
+;; signal unrestricted: unlike the linux branch (bwrap PID namespace) macOS has no
+;; PID isolation, so this also permits signaling other same-user processes — an
+;; accepted annoyance, not a host-compromise vector. (target self) breaks subprocesses.
+(allow signal)
 (allow sysctl-read)
 (allow mach-lookup)
 (allow file-read-metadata)
@@ -169,10 +179,15 @@ profile="(version 1)
 
 ;; ssh: agent only; known_hosts + config ro; private keys not allowed
 (allow file-read* (literal \"$HOME/.ssh/known_hosts\") (literal \"$HOME/.ssh/config\"))
-
-;; docker: orbstack socket connect denied unless --docker
-$docker_rule
 "
+# docker: orbstack socket connect denied unless opted in (lift with --docker).
+# Appended after (allow network*) so last-match-wins applies.
+if [[ "$docker" -eq 0 ]]; then
+  profile+="
+;; docker: orbstack socket connect denied (lift with --docker)
+(deny network-outbound (literal \"$docker_sock\"))
+"
+fi
 
 exec sandbox-exec -p "$profile" claude --dangerously-skip-permissions "$@"
 {{- else -}}
