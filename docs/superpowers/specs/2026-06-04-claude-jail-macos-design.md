@@ -73,16 +73,20 @@ The profile is passed inline via `-p`; no temp file.
 
 ;; syscalls/services needed to run node + tools (not the security boundary)
 (allow process-fork process-exec*)
-(allow signal (target self))
+(allow signal)                 ; not (target self): would break subprocess mgmt
 (allow sysctl-read)
 (allow mach-lookup)            ; system services, DNS via mDNSResponder
 (allow file-read-metadata)     ; stat / path traversal everywhere
 (allow network*)               ; outbound API + git, localhost MCP
 
-;; system reads: needed to load binaries and frameworks
-(allow file-read* (subpath "/usr") (subpath "/System") (subpath "/Library")
-                  (subpath "/bin") (subpath "/sbin") (subpath "/opt/homebrew")
-                  (subpath "/private/etc") (subpath "/private/var/db"))
+;; reads: broad, then deny $HOME. Enumerating every system path dyld + frameworks
+;; touch is fragile and was incomplete (the process aborted on an unenumerated
+;; dyld shared-cache read). The security boundary is $HOME — denied here, then
+;; re-allowed below for the workspace + explicit allowlist (last-match-wins).
+(allow file-read*)
+(deny file-read* (subpath "<HOME>"))
+
+;; writable system locations (temp, devices)
 (allow file-read* file-write* (subpath "/dev"))          ; tty, null, urandom, ptys
 (allow file-read* file-write* (subpath "/private/tmp")
                               (subpath "/private/var/folders"))   ; $TMPDIR
