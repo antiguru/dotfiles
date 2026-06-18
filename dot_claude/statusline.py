@@ -105,10 +105,32 @@ def fmt_reset_time(resets_at: Any, include_day: bool = False) -> str:
     return f" {DIM_GRAY}{t}{RESET}"
 
 
+def pace_color(delta: int, span: int = 15) -> str:
+    """24-bit ANSI color for a pace delta: green (under pace) -> yellow (on pace) -> red (over).
+
+    delta is clamped to [-span, +span]; -span = pure green, 0 = yellow, +span = pure red.
+    Two-segment linear interpolation through yellow gives a smooth traffic-light spectrum.
+    """
+    d = max(-span, min(span, delta))
+    if d <= 0:
+        # green (40,200,60) -> yellow (210,190,40)
+        f = (d + span) / span  # 0 at -span, 1 at 0
+        r = round(40 + (210 - 40) * f)
+        g = round(200 + (190 - 200) * f)
+        b = round(60 + (40 - 60) * f)
+    else:
+        # yellow (210,190,40) -> red (220,40,40)
+        f = d / span  # 0 at 0, 1 at +span
+        r = round(210 + (220 - 210) * f)
+        g = round(190 + (40 - 190) * f)
+        b = round(40 + (40 - 40) * f)
+    return f"\033[38;2;{r};{g};{b}m"
+
+
 def pace_delta_suffix(used_pct: int, resets_at: Any, window_secs: int) -> str:
     """Compute pace delta (used% - elapsed%); return colored ' (+/-Dpp)' suffix or ''.
 
-    <=-5pp green (under pace), -5..+5 dim (on pace), >=+5 red (over pace).
+    Color is a smooth green->yellow->red spectrum keyed on the delta (see pace_color).
     """
     reset_epoch = parse_resets_at(resets_at)
     if reset_epoch is None:
@@ -121,12 +143,7 @@ def pace_delta_suffix(used_pct: int, resets_at: Any, window_secs: int) -> str:
         return ""
     elapsed_pct = elapsed / window_secs * 100
     delta = round(used_pct - elapsed_pct)
-    if delta <= -5:
-        col = GREEN
-    elif delta >= 5:
-        col = RED
-    else:
-        col = DIM_GRAY
+    col = pace_color(delta)
     sign = "+" if delta >= 0 else ""
     return f" {col}{sign}{delta}pp{RESET}"
 
