@@ -16,6 +16,8 @@ claude mcp remove --scope user rustrover 2>/dev/null || true
 claude mcp add --scope user --transport http rustrover http://localhost:64342/stream
 claude mcp remove --scope user launchdarkly 2>/dev/null || true
 claude mcp add --scope user --transport http launchdarkly https://mcp.launchdarkly.com/mcp/launchdarkly
+claude mcp remove --scope user buildkite 2>/dev/null || true
+claude mcp add --scope user --transport http buildkite https://mcp.buildkite.com/mcp
 
 for dir in "$HOME/.claude-personal"; do
   CLAUDE_CONFIG_DIR="$dir" claude mcp remove --scope user github 2>/dev/null || true
