@@ -49,6 +49,14 @@
 * No unsafe, unless strictly needed.
   Each unsafe block/function needs a SAFETY explanation.
 
+## Comments
+
+* No em-dashes (`—`) or structuring semicolons in comments.
+* Doc comment states the contract.
+  Reasoning lives inline at the decision point, not in the doc comment.
+* Don't name the vendor in user-facing surfaces (e.g. column comments, docs).
+* Don't narrate abstractions that belong to a future change.
+
 # Materialize
 
 This applies to `~/dev/repos/materialize`.
