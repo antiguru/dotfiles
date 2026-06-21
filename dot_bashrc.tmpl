@@ -1,0 +1,61 @@
+# Interactive bash configuration.
+
+# If not running interactively, don't do anything.
+case $- in
+    *i*) ;;
+      *) return ;;
+esac
+
+{{- if eq .chezmoi.os "linux" }}
+
+# Materialize CI license (Linux workstation only)
+export MZ_LICENSE_KEY=$HOME/.mz-license-key
+[ -r "$MZ_LICENSE_KEY" ] && export MZ_CI_LICENSE_KEY=$(cat "$MZ_LICENSE_KEY")
+
+# gnome-keyring SSH agent
+export SSH_AUTH_SOCK=/run/user/1000/gcr/ssh
+{{- end }}
+
+# vi key bindings (mirrors the oh-my-zsh vi-mode plugin).
+set -o vi
+
+# History.
+HISTCONTROL=ignoreboth
+HISTSIZE=10000
+HISTFILESIZE=100000
+shopt -s histappend
+shopt -s checkwinsize
+
+# Aliases (mirrors dot_oh-my-zsh/custom/aliases.zsh).
+alias tdkafkacat='docker run --net=testdrive_default -it edenhill/kafkacat:1.6.0'
+alias claude-personal='CLAUDE_CONFIG_DIR=~/.claude-personal claude'
+alias claude-jail-personal='CLAUDE_CONFIG_DIR=~/.claude-personal claude-jail'
+
+alias ls='ls --color=auto'
+alias grep='grep --color=auto'
+alias ll='ls -alF'
+
+# Make less friendlier for non-text input.
+[ -x /usr/bin/lesspipe ] && eval "$(SHELL=/bin/sh lesspipe)"
+
+# Programmable completion.
+if ! shopt -oq posix; then
+    if [ -f /usr/share/bash-completion/bash_completion ]; then
+        . /usr/share/bash-completion/bash_completion
+    elif [ -f /etc/bash_completion ]; then
+        . /etc/bash_completion
+    fi
+fi
+
+# Git-aware prompt (approximates the omz robbyrussell theme).
+if [ -f /usr/share/git/completion/git-prompt.sh ]; then
+    . /usr/share/git/completion/git-prompt.sh
+elif [ -f /usr/lib/git-core/git-sh-prompt ]; then
+    . /usr/lib/git-core/git-sh-prompt
+fi
+if type __git_ps1 >/dev/null 2>&1; then
+    GIT_PS1_SHOWDIRTYSTATE=1
+    PS1='\[\e[32m\]➜\[\e[0m\] \[\e[36m\]\W\[\e[0m\]\[\e[31m\]$(__git_ps1 " git:(%s)")\[\e[0m\] '
+else
+    PS1='\[\e[32m\]➜\[\e[0m\] \[\e[36m\]\W\[\e[0m\] '
+fi

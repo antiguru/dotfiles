@@ -1,6 +1,16 @@
 {{- if ne .chezmoi.os "darwin" }}
 .config/karabiner/**
 {{- end }}
+{{- if ne .shell "zsh" }}
+.zshrc
+.zprofile
+.zshenv
+.oh-my-zsh/**
+{{- end }}
+{{- if ne .shell "bash" }}
+.bashrc
+.bash_profile
+{{- end }}
 **/__pycache__
 **/*.pyc
 docs/**

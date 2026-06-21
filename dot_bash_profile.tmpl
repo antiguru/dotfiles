@@ -1,0 +1,36 @@
+# Login shell: environment and PATH. Interactive config lives in ~/.bashrc.
+
+. "$HOME/.cargo/env"
+{{- if eq .chezmoi.os "darwin" }}
+eval "$(/opt/homebrew/bin/brew shellenv)"
+{{- end }}
+
+export PULUMI_SELF_MANAGED_STATE_GZIP=1
+
+# Prepend to PATH without creating duplicates (mirrors zsh's `typeset -U path`).
+prepend_path() { case ":$PATH:" in *":$1:"*) ;; *) PATH="$1:$PATH" ;; esac; }
+prepend_path "$HOME/.pulumi/bin"
+prepend_path "$HOME/.local/bin"
+export PATH
+
+{{- if eq .chezmoi.os "linux" }}
+export QT_AUTO_SCREEN_SCALE_FACTOR=0
+export QT_SCALE_FACTOR=2
+
+# Added by Toolbox App
+export PATH="$PATH:$HOME/.local/share/JetBrains/Toolbox/scripts"
+{{- else if eq .chezmoi.os "darwin" }}
+# Re-apply after /etc/profile's path_helper reorders PATH.
+eval "$(/opt/homebrew/bin/brew shellenv)"
+
+# Added by Toolbox App
+export PATH="$PATH:$HOME/Library/Application Support/JetBrains/Toolbox/scripts"
+
+# Added by OrbStack: command-line tools and integration
+source ~/.orbstack/shell/init.bash 2>/dev/null || :
+{{- end }}
+
+export PATH="$HOME/.elan/bin:$PATH"
+
+# Source interactive config for login shells.
+[ -f ~/.bashrc ] && . ~/.bashrc

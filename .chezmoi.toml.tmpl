@@ -1,3 +1,4 @@
+{{- $shell := promptStringOnce . "shell" "Login shell (bash/zsh)" "zsh" -}}
 umask = 0o022
 encryption = "age"
 
@@ -8,3 +9,4 @@ recipient = "age1v48fj3au5nc223tm5xkaghsxa3fqx3qmwejhn5gvsl3jswj7g3wq42wfcy"
 [data]
 name = "Moritz Hoffmann"
 email = "antiguru@gmail.com"
+shell = {{ $shell | quote }}
