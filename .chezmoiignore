@@ -4,3 +4,6 @@
 **/__pycache__
 **/*.pyc
 docs/**
+
+# Encrypted credential helpers: included+decrypted into mz.toml, never applied standalone.
+.config/materialize/*.age
