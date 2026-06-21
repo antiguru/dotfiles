@@ -29,12 +29,14 @@ So the profile starts with `(deny default)`, adds broad allows, then targeted re
 * **Profile strategy: filesystem-focused (A).**
   Deny-default, then permissively allow the syscalls and system reads node + tools need to run, but scope `file-write*` and sensitive reads tightly.
   Not a syscall-minimization jail; it confines user data and writes, which matches the threat.
-* **Docker: opt-in flag.**
-  No socket access by default. A leading `--docker` argument lifts the deny on the OrbStack socket.
-* **ssh: agent socket only.**
-  Allow the launchd agent socket plus read-only `~/.ssh/known_hosts` and `~/.ssh/config`. Private key files are not allowed.
+* **Docker / OrbStack: opt-in flag.**
+  No OrbStack access by default. A leading `--docker` argument lifts the deny on the OrbStack socket *and* allows ro read of `~/.orbstack/ssh` (config + VM key + known_hosts), so `ssh orb` works.
+  Both share a blast radius: `ssh orb` reaches the VM, which bind-mounts the mac home, so it is a `$HOME` exfil path like the docker socket.
+  The VM must already be running; the jail cannot autostart it (the daemon writes `~/.orbstack/log`), which also applies to plain `--docker` docker use.
+* **ssh: agent socket only (plus OrbStack under `--docker`).**
+  Allow the launchd agent socket plus read-only `~/.ssh/known_hosts` and `~/.ssh/config`. Personal private key files are never allowed; the OrbStack VM key is readable only under `--docker`.
 * **Rust: enabled.**
-  rw `~/.cargo`, ro `~/.rustup`.
+  rw `~/.cargo`, ro `~/.rustup`. `mach-register` is allowed for the `org.rust-lang.ipc-channel.*` prefix so `samply` can siphon the sampled task port.
 * **Workspace: cwd + `~/dev/repos` (rw).**
 
 ## File structure
@@ -76,6 +78,7 @@ The profile is passed inline via `-p`; no temp file.
 (allow signal)                 ; not (target self): would break subprocess mgmt
 (allow sysctl-read)
 (allow mach-lookup)            ; system services, DNS via mDNSResponder
+(allow mach-register (global-name-regex #"^org\.rust-lang\.ipc-channel"))  ; samply task-port siphon
 (allow file-read-metadata)     ; stat / path traversal everywhere
 (allow network*)               ; outbound API + git, localhost MCP
 
@@ -111,9 +114,11 @@ The profile is passed inline via `-p`; no temp file.
 (allow file-read* (literal "<HOME>/.ssh/known_hosts") (literal "<HOME>/.ssh/config"))
 ;; SSH_AUTH_SOCK (launchd) reachable via network* + global metadata
 
-;; docker: the OrbStack socket connect is denied unless --docker is passed.
-;; This deny line is emitted only when docker=0.
-(deny network-outbound (literal "<ORBSTACK_DOCKER_SOCK>"))
+;; OrbStack: gated on --docker. When docker=0, emit the socket deny below.
+;; When docker=1, omit it and instead allow ro read of the orbstack ssh dir
+;; (config + VM key + known_hosts) so `ssh orb` works.
+(deny network-outbound (literal "<ORBSTACK_DOCKER_SOCK>"))      ; docker=0 only
+(allow file-read* (subpath "<HOME>/.orbstack/ssh"))            ; docker=1 only
 ```
 
 Interpolation note: `<ORBSTACK_DOCKER_SOCK>` resolves to the real path `~/.orbstack/run/docker.sock` (Seatbelt resolves symlinks, so denying `/var/run/docker.sock` would not suffice).
@@ -140,5 +145,5 @@ Accepted holes (documented in the script header):
    Surface them with `log stream --predicate 'sender == "Sandbox"'` (or run with `(debug deny)`), then add minimal allows.
 3. Verify confinement: inside the jail, reading `~/.ssh/id_ed25519` and writing `~/Documents/x` both fail; reading/writing the cwd and `~/dev/repos` succeed.
 4. Verify `git push` over ssh works via the agent.
-5. Verify `docker ps` fails without `--docker` and succeeds with it.
-6. Verify `cargo build` works in a `~/dev/repos` Rust project.
+5. Verify `docker ps` and `ssh orb` fail without `--docker` and succeed with it (VM started beforehand).
+6. Verify `cargo build` works in a `~/dev/repos` Rust project, and `samply record` profiles a locally-built binary with no `mach-register` denial.

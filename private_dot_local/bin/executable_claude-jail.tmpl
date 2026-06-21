@@ -173,6 +173,9 @@ profile="(version 1)
 (allow signal)
 (allow sysctl-read)
 (allow mach-lookup)
+;; samply (cargo profiler) registers an ipc-channel bootstrap name to siphon the
+;; sampled task port. Scoped to that prefix; publishing a name grants no host data.
+(allow mach-register (global-name-regex #\"^org\\.rust-lang\\.ipc-channel\"))
 (allow file-read-metadata)
 (allow network*)
 
@@ -206,12 +209,20 @@ profile="(version 1)
 ;; ssh: agent only; known_hosts + config ro; private keys not allowed
 (allow file-read* (literal \"$HOME/.ssh/known_hosts\") (literal \"$HOME/.ssh/config\"))
 "
-# docker: orbstack socket connect denied unless opted in (lift with --docker).
-# Appended after (allow network*) so last-match-wins applies.
+# --docker lifts both OrbStack capabilities (same blast radius — `ssh orb` reaches
+# the VM, which bind-mounts the mac home). Default: socket connect denied and the
+# orbstack ssh keys stay behind the $HOME deny. Appended after (allow network*) /
+# (deny file-read* $HOME) so last-match-wins applies.
 if [[ "$docker" -eq 0 ]]; then
   profile+="
 ;; docker: orbstack socket connect denied (lift with --docker)
 (deny network-outbound (literal \"$docker_sock\"))
+"
+else
+  profile+="
+;; --docker: ssh orb needs the orbstack config + VM key + known_hosts, which
+;; ~/.ssh/config pulls in via Include. ro; reachable only because --docker is set.
+(allow file-read* (subpath \"$HOME/.orbstack/ssh\"))
 "
 fi
 
