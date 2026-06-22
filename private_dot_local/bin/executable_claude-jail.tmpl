@@ -91,6 +91,27 @@ args+=(
 
 # Jail is the permission boundary; skip per-tool prompts inside.
 # Known holes (accepted): docker.sock = host root; creds + network live inside.
+#
+# The `remote-control`/`rc` subcommand hides its real options (--spawn,
+# --capacity, ...) whenever --dangerously-skip-permissions is set, collapsing
+# to a help-only parser. For that subcommand drop the global flag and set the
+# spawned-session permission mode instead, unless the caller already passed one.
+case "${1:-}" in
+  remote-control | rc)
+    has_perm_mode=0
+    for arg in "$@"; do
+      case "$arg" in
+        --permission-mode | --permission-mode=*) has_perm_mode=1 ;;
+      esac
+    done
+    rc_args=("$@")
+    if [[ "$has_perm_mode" -eq 0 ]]; then
+      rc_args+=(--permission-mode bypassPermissions)
+    fi
+    exec bwrap "${args[@]}" -- claude "${rc_args[@]}"
+    ;;
+esac
+
 exec bwrap "${args[@]}" -- claude --dangerously-skip-permissions "$@"
 {{- else if eq .chezmoi.os "darwin" -}}
 #!/usr/bin/env bash
@@ -193,6 +214,26 @@ if [[ "$docker" -eq 0 ]]; then
 (deny network-outbound (literal \"$docker_sock\"))
 "
 fi
+
+# The `remote-control`/`rc` subcommand hides its real options (--spawn,
+# --capacity, ...) whenever --dangerously-skip-permissions is set, collapsing
+# to a help-only parser. For that subcommand drop the global flag and set the
+# spawned-session permission mode instead, unless the caller already passed one.
+case "${1:-}" in
+  remote-control | rc)
+    has_perm_mode=0
+    for arg in "$@"; do
+      case "$arg" in
+        --permission-mode | --permission-mode=*) has_perm_mode=1 ;;
+      esac
+    done
+    rc_args=("$@")
+    if [[ "$has_perm_mode" -eq 0 ]]; then
+      rc_args+=(--permission-mode bypassPermissions)
+    fi
+    exec sandbox-exec -p "$profile" claude "${rc_args[@]}"
+    ;;
+esac
 
 exec sandbox-exec -p "$profile" claude --dangerously-skip-permissions "$@"
 {{- else -}}
