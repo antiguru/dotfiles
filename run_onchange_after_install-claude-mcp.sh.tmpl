@@ -19,6 +19,18 @@ claude mcp add --scope user --transport http launchdarkly https://mcp.launchdark
 claude mcp remove --scope user buildkite 2>/dev/null || true
 claude mcp add --scope user --transport http buildkite https://mcp.buildkite.com/mcp
 
+# Grafana runs in Docker and reaches the remote instance over HTTPS; the
+# service-account token is age-encrypted at rest and decrypted at apply time.
+claude mcp remove --scope user grafana 2>/dev/null || true
+claude mcp add-json --scope user grafana '{
+  "command": "docker",
+  "args": ["run", "--rm", "-i", "-e", "GRAFANA_URL", "-e", "GRAFANA_SERVICE_ACCOUNT_TOKEN", "grafana/mcp-grafana", "-t", "stdio"],
+  "env": {
+    "GRAFANA_URL": "https://grafana.dev.materialize.com/",
+    "GRAFANA_SERVICE_ACCOUNT_TOKEN": "{{ include "grafana_token.age" | decrypt | trim }}"
+  }
+}'
+
 for dir in "$HOME/.claude-personal"; do
   CLAUDE_CONFIG_DIR="$dir" claude mcp remove --scope user github 2>/dev/null || true
   CLAUDE_CONFIG_DIR="$dir" claude mcp add --scope user --transport stdio github -- \

@@ -15,5 +15,6 @@
 **/*.pyc
 docs/**
 
-# Encrypted credential helpers: included+decrypted into mz.toml, never applied standalone.
+# Encrypted credential helpers: included+decrypted into target files, never applied standalone.
 .config/materialize/*.age
+grafana_token.age
