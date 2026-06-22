@@ -11,6 +11,7 @@ export PULUMI_SELF_MANAGED_STATE_GZIP=1
 prepend_path() { case ":$PATH:" in *":$1:"*) ;; *) PATH="$1:$PATH" ;; esac; }
 prepend_path "$HOME/.pulumi/bin"
 prepend_path "$HOME/.local/bin"
+prepend_path "$HOME/bin"
 export PATH
 
 {{- if eq .chezmoi.os "linux" }}

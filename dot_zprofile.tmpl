@@ -1,7 +1,7 @@
 # User specific environment and startup programs
 
 typeset -U path
-path=(~/.local/bin ~/.pulumi/bin $path[@])
+path=(~/bin ~/.local/bin ~/.pulumi/bin $path[@])
 
 {{- if eq .chezmoi.os "linux" }}
 export QT_AUTO_SCREEN_SCALE_FACTOR=0
