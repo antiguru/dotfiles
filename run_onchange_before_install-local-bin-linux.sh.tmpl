@@ -1,8 +1,9 @@
 {{- if eq .chezmoi.os "linux" -}}
 #!/usr/bin/env bash
-# Install non-distro tools on Linux, where Homebrew is intentionally absent.
-# Re-runs whenever this file changes (e.g. a version bump below); idempotent
-# via the per-tool version check.
+# Install tools into the per-user ~/.local/bin on Linux (no sudo), where they
+# have no distro package and Homebrew is intentionally absent. System packages
+# live in bootstrap/debian.sh instead. Re-runs whenever this file changes (e.g.
+# a version bump below); idempotent via the per-tool version check.
 set -euo pipefail
 
 # buf: install the matching released binary into ~/.local/bin (already on PATH,
