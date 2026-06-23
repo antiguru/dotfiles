@@ -62,4 +62,12 @@ uv_version="0.11.23"
 at_version "$bin/uv" "$uv_version" || install_tar \
   "https://github.com/astral-sh/uv/releases/download/${uv_version}/uv-${uv_arch}-unknown-linux-gnu.tar.gz" \
   uv uvx
+
+# github-mcp-server: backs the github MCP server (brew-only on macOS). Shares
+# helm-docs' Linux_<arch> asset naming.
+# renovate: datasource=github-releases depName=github/github-mcp-server
+github_mcp_version="1.4.0"
+at_version "$bin/github-mcp-server" "$github_mcp_version" || install_tar \
+  "https://github.com/github/github-mcp-server/releases/download/v${github_mcp_version}/github-mcp-server_Linux_${helm_arch}.tar.gz" \
+  github-mcp-server
 {{ end -}}
