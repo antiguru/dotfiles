@@ -21,7 +21,8 @@
       "matchStrings": [
         "ensure (?<depName>[\\w-]+) (?<currentValue>\\d[\\w.+-]*)"
       ],
-      "datasourceTemplate": "crate"
+      "datasourceTemplate": "crate",
+      "versioningTemplate": "semver"
     }
   ]
 }
