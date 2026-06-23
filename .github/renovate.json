@@ -1,0 +1,23 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Release binaries pinned in the local-bin install script",
+      "fileMatch": ["^run_onchange_before_install-local-bin-linux\\.sh\\.tmpl$"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+\\w+_version=\"(?<currentValue>[^\"]+)\""
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "Cargo tools pinned via `ensure NAME VERSION`",
+      "fileMatch": ["^run_onchange_after_install-cargo-tools\\.sh$"],
+      "matchStrings": [
+        "ensure (?<depName>[\\w-]+) (?<currentValue>\\d[\\w.+-]*)"
+      ],
+      "datasourceTemplate": "crate"
+    }
+  ]
+}

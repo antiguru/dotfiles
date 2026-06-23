@@ -1,0 +1,26 @@
+name: Renovate
+
+# Self-hosted Renovate: no third-party app, runs against this repo only and
+# opens PRs that bump the version pins in the install scripts. The custom
+# managers live in .github/renovate.json.
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  renovate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: renovatebot/github-action@v46.1.16
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+          RENOVATE_ONBOARDING: "false"
+          RENOVATE_PLATFORM: github
+          LOG_LEVEL: info
