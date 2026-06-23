@@ -15,6 +15,7 @@ apt_packages=(
   clang
   cmake
   curl
+  docker-compose
   docker.io
   etckeeper
   gh
