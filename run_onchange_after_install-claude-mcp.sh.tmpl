@@ -8,6 +8,10 @@ claude mcp remove --scope user github 2>/dev/null || true
 claude mcp add --scope user --transport stdio github -- \
   sh -c 'GITHUB_PERSONAL_ACCESS_TOKEN=$(gh auth token) exec github-mcp-server stdio'
 
+# pollard: local stdio server exposing samply/Firefox-format profiles to Claude.
+claude mcp remove --scope user pollard 2>/dev/null || true
+claude mcp add --scope user --transport stdio pollard -- pollard
+
 # HTTP MCP servers (main profile only). rustrover is local and only connects
 # when RustRover is running; polarsignals uses short-lived tokens.
 claude mcp remove --scope user polarsignals 2>/dev/null || true
@@ -35,4 +39,6 @@ for dir in "$HOME/.claude-personal"; do
   CLAUDE_CONFIG_DIR="$dir" claude mcp remove --scope user github 2>/dev/null || true
   CLAUDE_CONFIG_DIR="$dir" claude mcp add --scope user --transport stdio github -- \
     sh -c 'GITHUB_PERSONAL_ACCESS_TOKEN=$(gh auth token) exec github-mcp-server stdio'
+  CLAUDE_CONFIG_DIR="$dir" claude mcp remove --scope user pollard 2>/dev/null || true
+  CLAUDE_CONFIG_DIR="$dir" claude mcp add --scope user --transport stdio pollard -- pollard
 done
