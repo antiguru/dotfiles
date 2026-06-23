@@ -1,0 +1,20 @@
+{{- if eq .chezmoi.os "linux" -}}
+#!/usr/bin/env bash
+# Install non-distro tools on Linux, where Homebrew is intentionally absent.
+# Re-runs whenever this file changes (e.g. a version bump below); idempotent
+# via the per-tool version check.
+set -euo pipefail
+
+# buf: install the matching released binary into ~/.local/bin (already on PATH,
+# no sudo). Release assets are named buf-$(uname -s)-$(uname -m), which already
+# matches Linux/x86_64 and Linux/aarch64.
+buf_version="1.71.0"
+bin="$HOME/.local/bin"
+if [ "$("$bin/buf" --version 2>/dev/null)" != "$buf_version" ]; then
+  mkdir -p "$bin"
+  curl -fsSL \
+    "https://github.com/bufbuild/buf/releases/download/v${buf_version}/buf-$(uname -s)-$(uname -m)" \
+    -o "$bin/buf"
+  chmod +x "$bin/buf"
+fi
+{{ end -}}
