@@ -3,19 +3,59 @@
 # Install tools into the per-user ~/.local/bin on Linux (no sudo), where they
 # have no distro package and Homebrew is intentionally absent. System packages
 # live in bootstrap/debian.sh instead. Re-runs whenever this file changes (e.g.
-# a version bump below); idempotent via the per-tool version check.
+# a version bump below); each tool is skipped when already at the pinned version.
 set -euo pipefail
 
-# buf: install the matching released binary into ~/.local/bin (already on PATH,
-# no sudo). Release assets are named buf-$(uname -s)-$(uname -m), which already
-# matches Linux/x86_64 and Linux/aarch64.
-buf_version="1.71.0"
 bin="$HOME/.local/bin"
-if [ "$("$bin/buf" --version 2>/dev/null)" != "$buf_version" ]; then
-  mkdir -p "$bin"
+mkdir -p "$bin"
+
+# uname -m mapped to each project's release-asset arch naming.
+case "$(uname -m)" in
+  x86_64)  buf_arch=x86_64;  helm_arch=x86_64; th_arch=amd64; uv_arch=x86_64 ;;
+  aarch64) buf_arch=aarch64; helm_arch=arm64;  th_arch=arm64; uv_arch=aarch64 ;;
+  *) echo "unsupported arch: $(uname -m)" >&2; exit 1 ;;
+esac
+
+# at_version BIN VERSION: true when BIN exists and reports VERSION.
+at_version() { [ -x "$1" ] && "$1" --version 2>&1 | grep -qF "$2"; }
+
+# install_tar URL BIN...: extract the named binaries from a release tarball.
+install_tar() {
+  local url=$1; shift
+  local tmp; tmp=$(mktemp -d)
+  curl -fsSL "$url" -o "$tmp/dl.tar.gz"
+  tar -xzf "$tmp/dl.tar.gz" -C "$tmp"
+  local b
+  for b in "$@"; do
+    install -m755 "$(find "$tmp" -type f -name "$b" -print -quit)" "$bin/$b"
+  done
+  rm -rf "$tmp"
+}
+
+# buf: single binary, asset named buf-Linux-<arch>.
+buf_version="1.71.0"
+if ! at_version "$bin/buf" "$buf_version"; then
   curl -fsSL \
-    "https://github.com/bufbuild/buf/releases/download/v${buf_version}/buf-$(uname -s)-$(uname -m)" \
+    "https://github.com/bufbuild/buf/releases/download/v${buf_version}/buf-Linux-${buf_arch}" \
     -o "$bin/buf"
   chmod +x "$bin/buf"
 fi
+
+# helm-docs
+helm_docs_version="1.14.2"
+at_version "$bin/helm-docs" "$helm_docs_version" || install_tar \
+  "https://github.com/norwoodj/helm-docs/releases/download/v${helm_docs_version}/helm-docs_${helm_docs_version}_Linux_${helm_arch}.tar.gz" \
+  helm-docs
+
+# trufflehog
+trufflehog_version="3.95.6"
+at_version "$bin/trufflehog" "$trufflehog_version" || install_tar \
+  "https://github.com/trufflesecurity/trufflehog/releases/download/v${trufflehog_version}/trufflehog_${trufflehog_version}_linux_${th_arch}.tar.gz" \
+  trufflehog
+
+# uv ships uv + uvx; the release tag has no leading v.
+uv_version="0.11.23"
+at_version "$bin/uv" "$uv_version" || install_tar \
+  "https://github.com/astral-sh/uv/releases/download/${uv_version}/uv-${uv_arch}-unknown-linux-gnu.tar.gz" \
+  uv uvx
 {{ end -}}

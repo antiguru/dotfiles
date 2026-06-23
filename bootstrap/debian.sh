@@ -24,6 +24,7 @@ apt_packages=(
   lld
   mc
   nodejs
+  npm
   pkg-config
   powertop
   python3-venv
