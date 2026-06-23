@@ -26,6 +26,7 @@ apt_packages=(
   nodejs
   npm
   pkg-config
+  postgresql
   powertop
   python3-venv
   shellcheck
