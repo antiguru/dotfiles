@@ -49,3 +49,12 @@ if [ "$(cat "$dropin" 2>/dev/null)" != "$want" ]; then
   printf '%s\n' "$want" | sudo install -Dm644 /dev/stdin "$dropin"
   sudo systemctl restart systemd-logind
 fi
+
+# Allow system-wide profiling (samply/perf): unrestricted perf events and
+# kernel-symbol resolution for unprivileged users.
+sysctl_dropin=/etc/sysctl.d/99-profiling.conf
+sysctl_want=$'kernel.perf_event_paranoid = -1\nkernel.kptr_restrict = 0'
+if [ "$(cat "$sysctl_dropin" 2>/dev/null)" != "$sysctl_want" ]; then
+  printf '%s\n' "$sysctl_want" | sudo install -Dm644 /dev/stdin "$sysctl_dropin"
+  sudo sysctl --system
+fi
