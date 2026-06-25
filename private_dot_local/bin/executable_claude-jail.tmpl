@@ -198,6 +198,9 @@ profile="(version 1)
 (allow file-read* file-write* (literal \"$HOME/.claude.json\")
                               (literal \"$HOME/.claude.json.backup\"))
 (allow file-read* file-write* (subpath \"$HOME/.cargo\"))
+;; uv keeps its package cache here (XDG default on macOS too, not ~/Library/Caches);
+;; rw or every uv/uvx invocation fails to read and rewrite the cache.
+(allow file-read* file-write* (subpath \"$HOME/.cache/uv\"))
 
 ;; read-only: toolchain, shell init, git/gh config
 (allow file-read* (subpath \"$HOME/.rustup\")
@@ -229,6 +232,18 @@ else
 ;; ~/.ssh/config pulls in via Include. ro; reachable only because --docker is set.
 (allow file-read* (subpath \"$HOME/.orbstack/ssh\"))
 "
+fi
+
+# The github MCP server runs `gh auth token`. Inside the jail that can only read
+# the token from ~/.config/gh/hosts.yml (ro-allowed); the macOS keychain, where
+# gh stores it by default, is behind the $HOME deny. Warn (do not block) when the
+# token is keychain-only, and print the one-shot fix, so github tooling does not
+# fail silently mid-session.
+gh_hosts="$HOME/.config/gh/hosts.yml"
+if ! grep -q "oauth_token:" "$gh_hosts" 2>/dev/null; then
+  echo "claude-jail: gh token not in $gh_hosts (keychain-only); gh and the github MCP will fail inside the jail." >&2
+  echo "claude-jail: move it to a jail-readable file with:" >&2
+  echo "  gh auth token | gh auth login --hostname github.com --git-protocol ssh --with-token --insecure-storage" >&2
 fi
 
 # The `remote-control`/`rc` subcommand hides its real options (--spawn,
