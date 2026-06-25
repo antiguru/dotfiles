@@ -203,11 +203,16 @@ profile="(version 1)
 (allow file-read* (subpath \"$HOME/.rustup\")
                   (literal \"$HOME/.zshrc\") (literal \"$HOME/.zshenv\")
                   (subpath \"$HOME/.oh-my-zsh\")
-                  (literal \"$HOME/.gitconfig\") (subpath \"$HOME/.config/git\")
+                  (literal \"$HOME/.gitconfig\") (literal \"$HOME/.gitignore\")
+                  (subpath \"$HOME/.config/git\")
                   (subpath \"$HOME/.config/gh\"))
 
-;; ssh: agent only; known_hosts + config ro; private keys not allowed
-(allow file-read* (literal \"$HOME/.ssh/known_hosts\") (literal \"$HOME/.ssh/config\"))
+;; ssh: agent only; known_hosts + config ro; private keys not allowed.
+;; ~/.ssh/config unconditionally Includes ~/.orbstack/ssh/config; an unreadable
+;; Include is fatal to ssh, so allow that config file (not the orbstack keys,
+;; which stay behind the \$HOME deny unless --docker).
+(allow file-read* (literal \"$HOME/.ssh/known_hosts\") (literal \"$HOME/.ssh/config\")
+                  (literal \"$HOME/.orbstack/ssh/config\"))
 "
 # --docker lifts both OrbStack capabilities (same blast radius — `ssh orb` reaches
 # the VM, which bind-mounts the mac home). Default: socket connect denied and the
