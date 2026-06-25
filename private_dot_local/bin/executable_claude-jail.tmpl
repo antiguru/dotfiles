@@ -173,6 +173,10 @@ profile="(version 1)
 (allow signal)
 (allow sysctl-read)
 (allow mach-lookup)
+;; POSIX named semaphores: Python multiprocessing (spawn, the macOS default) calls
+;; sem_open for its pool locks, so tools like materialize's bin/lint abort with
+;; EPERM without this. An IPC primitive, not a host-data vector.
+(allow ipc-posix-sem)
 ;; samply (cargo profiler) registers an ipc-channel bootstrap name to siphon the
 ;; sampled task port. Scoped to that prefix; publishing a name grants no host data.
 (allow mach-register (global-name-regex #\"^org\\.rust-lang\\.ipc-channel\"))
