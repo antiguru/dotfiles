@@ -10,6 +10,7 @@ set -euo pipefail
 # pulled in by the Debian installer are deliberately excluded.
 apt_packages=(
   aptitude
+  bc
   bubblewrap
   build-essential
   clang
@@ -33,6 +34,7 @@ apt_packages=(
   sudo
   tmux
   vim
+  xxd
 )
 sudo apt-get update
 sudo apt-get install -y "${apt_packages[@]}"
