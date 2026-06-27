@@ -52,9 +52,11 @@ args=(
   --bind "$HOME/dev/repos" "$HOME/dev/repos"
   --bind "$config_dir" "$config_dir"
   --bind-try "$HOME/.claude.json" "$HOME/.claude.json"
-  # statusLine runs ~/.claude/statusline.py regardless of config_dir, so the
-  # personal jail (config_dir = ~/.claude-personal) needs the script bound too.
+  # statusLine and the WorktreeCreate hook run scripts under ~/.claude
+  # regardless of config_dir, so the personal jail (config_dir =
+  # ~/.claude-personal) needs them bound too.
   --ro-bind-try "$HOME/.claude/statusline.py" "$HOME/.claude/statusline.py"
+  --ro-bind-try "$HOME/.claude/hooks" "$HOME/.claude/hooks"
   --bind-try "$HOME/.claude.json.backup" "$HOME/.claude.json.backup"
   --bind "$HOME/.cargo" "$HOME/.cargo"
   --ro-bind "$HOME/.rustup" "$HOME/.rustup"
@@ -209,9 +211,11 @@ profile="(version 1)
 ;; rw or every uv/uvx invocation fails to read and rewrite the cache.
 (allow file-read* file-write* (subpath \"$HOME/.cache/uv\"))
 
-;; statusLine runs ~/.claude/statusline.py regardless of config_dir, so the
-;; personal jail (config_dir = ~/.claude-personal) needs read on the script too.
-(allow file-read* (literal \"$HOME/.claude/statusline.py\"))
+;; statusLine and the WorktreeCreate hook run scripts under ~/.claude regardless
+;; of config_dir, so the personal jail (config_dir = ~/.claude-personal) needs
+;; read on them too.
+(allow file-read* (literal \"$HOME/.claude/statusline.py\")
+                  (subpath \"$HOME/.claude/hooks\"))
 
 ;; read-only: toolchain, shell init, git/gh config
 (allow file-read* (subpath \"$HOME/.rustup\")
