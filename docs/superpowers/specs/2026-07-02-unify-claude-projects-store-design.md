@@ -50,19 +50,45 @@ The rejected alternative, a `SessionStart` hook that symlinks only `memory/` per
 All three are managed from the chezmoi source tree.
 
 1. `dot_claude/symlink_projects.tmpl` and `dot_claude-personal/symlink_projects.tmpl`.
-   Each renders the symlink target `{{ .chezmoi.homeDir }}/.local/share/claude/projects`.
-   Same mechanism as the existing `dot_claude-personal/symlink_CLAUDE.md`.
-   These declare the desired end state so future `chezmoi apply` detects and corrects drift.
+   Each renders the absolute symlink target `{{ .chezmoi.homeDir }}/.local/share/claude/projects` with no trailing newline.
+   These use the same `symlink_` prefix mechanism as the existing `dot_claude-personal/symlink_CLAUDE.md`, but the concrete form differs: that precedent is a plain (non-template) file holding a relative target (`../.claude/CLAUDE.md`), whereas these are templates holding an absolute target.
+   They declare the desired end state so future `chezmoi apply` detects and corrects drift.
 
-2. `run_once_before_migrate-claude-projects.sh.tmpl`, the one-time data migration.
-   chezmoi replacing a non-empty real `projects/` with a symlink would delete session data, so this script is authoritative: it merges existing data into the store and creates the symlinks itself, leaving chezmoi with a no-op diff.
-   Steps:
-   * Abort if either Claude Code instance is running (see Safety), printing instructions to retry when both are quit.
-   * `mkdir -p` the store.
-   * Merge `~/.claude/projects` first because it holds the real memory, then `~/.claude-personal/projects` with no-clobber (`cp -an`).
-     Same-slug collisions (`materialize`, `chezmoi`) are safe: session `.jsonl` names are unique, and memory is already unified through the user's manual symlink.
-   * Resolve and drop the stale internal `.../materialize/memory -> ...` symlink and the adjacent `memory.bak` so the store holds real content.
-   * Replace each real `projects/` dir with the symlink to the store.
+2. `run_once_before_migrate-claude-projects.sh.tmpl`, the data migration.
+   chezmoi replacing a non-empty real `projects/` with a symlink would delete session data, so this script is authoritative: it merges existing data into the store and creates the symlinks itself, leaving chezmoi a no-op diff for component 1.
+   The script is decomposed into ordered steps, each with a success criterion.
+
+   *Step A, guard.*
+   Abort with a non-zero exit if any Claude Code process is running (see Safety for the concrete detection and why non-zero is mandatory).
+   Success: no live Claude Code process, and the script is not itself a descendant of one.
+
+   *Step B, idempotency short-circuit.*
+   A `run_once_before` script re-runs whenever its rendered body hash changes, not only once ever, so a later bugfix edit re-triggers it after the `projects/` dirs are already symlinks.
+   If both `~/.claude/projects` and `~/.claude-personal/projects` are already symlinks resolving to the store, exit 0 (nothing to do).
+   Success: the script is a no-op on an already-migrated system.
+
+   *Step C, conflict-aware merge.*
+   `mkdir -p` the store.
+   For each source profile dir that is a real directory (skip any that is already a symlink), merge its contents into the store following symlinks so the store holds real files, never links:
+     * a path absent in the store is copied in,
+     * a path present and byte-identical (`cmp -s`) is skipped,
+     * a path present but diverging is copied aside as `<name>.conflict-<profile>` and recorded in a conflict log, never silently overwritten.
+   This applies generically to every slug; there is no per-slug special case.
+   The literal copy uses merge (not nesting) semantics, e.g. the source is addressed as `dir/.` so contents land at `store/<slug>/...`, not `store/projects/<slug>/...`.
+   Success: for every source file, the store holds either that file or a `.conflict-<profile>` sibling; the conflict log lists every divergence.
+
+   *Step D, stale-link and backup cleanup.*
+   Generic per-slug rule, not a `materialize` special case: if a slug's `memory` is a symlink in either profile, its resolved target is authoritative and is not re-copied as a separate entry (Step C already follows it to real content); any `memory.bak` sibling is dropped.
+   Success: no symlinked `memory` and no `memory.bak` remain in the store.
+
+   *Step E, backup then replace.*
+   Only after the store is fully populated, rename each real source dir aside (`projects.pre-migration/`) rather than deleting it, then create the profile symlink to the store.
+   The `ln` target string must be byte-identical to the rendered target of component 1, or component 1 stops being a no-op diff.
+   Success: `readlink` on both profile `projects` returns the store path; both `projects.pre-migration/` dirs still exist for rollback.
+
+   *Step F, report.*
+   Write `migration-report.txt` into the store: per-profile file counts before and after, and the conflict list.
+   Success: the report exists and lets the human verification step below run without pre-recorded baselines.
 
 3. `claude-jail.tmpl` macOS branch.
    Add `(allow file-read* file-write* (subpath "$HOME/.local/share/claude"))`.
@@ -82,9 +108,17 @@ flowchart LR
 The migration is destructive-adjacent: it moves `projects/` out from under whatever process owns it.
 Both profiles are running at design time, and the migrating session itself runs under `~/.claude`, so moving its own `projects/` mid-session would break live `.jsonl` file handles.
 
-Hard precondition: the migration runs only when both Claude Code instances are quit.
-The `run_once_before` script self-guards by detecting live Claude Code processes and aborting with instructions rather than proceeding.
-Because a `run_once_before` script fires during `chezmoi apply`, this guard prevents an ill-timed apply from corrupting an active session.
+Hard precondition: the migration runs only from a plain shell with both Claude Code instances quit, never from inside a Claude Code session.
+Any `chezmoi apply` invoked from within a session is a descendant of a Claude Code process, so the guard will (correctly) abort it.
+
+Process detection cannot rely on `pgrep -x claude`: live sessions appear in at least three shapes, none of which is a bare `claude` process name.
+A jailed session runs as `bwrap ... -- claude ...`; a headless or remote-control session runs the versioned binary directly as `~/.local/share/claude/versions/<v> --print --sdk-url ...` with no `claude` token.
+The guard therefore matches `.local/share/claude` (and the version binary path) anywhere in `/proc/*/cmdline` on Linux, excluding the script's own process tree; the macOS equivalent scans `ps -eo command`.
+The abort message must warn that detached remote-control sessions are not closed by quitting a terminal and must be stopped explicitly.
+
+The guard exits non-zero, which is mandatory, not cosmetic.
+A non-zero `run_once_before` exit fails the whole `chezmoi apply`, so component 1's symlinks are not applied and the run is not recorded as done, leaving both `projects/` dirs untouched for a later retry.
+If the guard instead exited 0 without migrating, chezmoi would mark the script done and proceed to replace both real `projects/` dirs with symlinks, destroying the data; the non-zero exit is what prevents this.
 
 ## Accepted tradeoffs
 
@@ -97,9 +131,11 @@ These follow from the "whole projects dir" choice and are acceptable to the user
 
 ## Verification
 
-There is no test suite; verification is manual.
+There is no test suite; verification is manual, and it runs before the `projects.pre-migration/` backups are removed.
 
 * `chezmoi diff` before apply shows the two `projects` symlinks and the jail edit, nothing else surprising.
 * After migration, `readlink ~/.claude/projects` and `readlink ~/.claude-personal/projects` both resolve to the store.
 * A memory file written under one profile is visible under the other for the same checkout.
-* No session `.jsonl` files are lost: file count in the store is at least the pre-migration union across both profiles.
+* No files are lost: the store's post-migration file count is at least the pre-migration union recorded in `migration-report.txt`.
+* The conflict log is reviewed and every `.conflict-<profile>` file is reconciled or accepted before the `projects.pre-migration/` backups are deleted.
+* On a re-run (edited script), the idempotency short-circuit fires and the store is unchanged.
