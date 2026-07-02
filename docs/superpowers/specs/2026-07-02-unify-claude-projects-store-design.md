@@ -71,8 +71,10 @@ All three are managed from the chezmoi source tree.
    `mkdir -p` the store.
    For each source profile dir that is a real directory (skip any that is already a symlink), merge its contents into the store following symlinks so the store holds real files, never links:
      * a path absent in the store is copied in,
-     * a path present and byte-identical (`cmp -s`) is skipped,
-     * a path present but diverging is copied aside as `<name>.conflict-<profile>` and recorded in a conflict log, never silently overwritten.
+     * a regular file present and byte-identical (`cmp -s`) is skipped,
+     * a regular file present but diverging is copied aside as `<name>.conflict-<profile>` and recorded in a conflict log, never silently overwritten.
+   Directories present on both sides are recursed into structurally; the byte-identical / conflict rule above applies only to the regular files found during that recursion, not to a directory as a whole (`cmp` errors on a directory, so treating a directory as a comparable unit would false-positive every shared subtree such as `memory/` and `todos/`).
+   A dangling symlink encountered while following links (e.g. a future project's broken `memory -> ...`) aborts the migration loudly rather than being copied or skipped, so a broken link is never mistaken for empty content.
    This applies generically to every slug; there is no per-slug special case.
    The literal copy uses merge (not nesting) semantics, e.g. the source is addressed as `dir/.` so contents land at `store/<slug>/...`, not `store/projects/<slug>/...`.
    Success: for every source file, the store holds either that file or a `.conflict-<profile>` sibling; the conflict log lists every divergence.
@@ -113,7 +115,8 @@ Any `chezmoi apply` invoked from within a session is a descendant of a Claude Co
 
 Process detection cannot rely on `pgrep -x claude`: live sessions appear in at least three shapes, none of which is a bare `claude` process name.
 A jailed session runs as `bwrap ... -- claude ...`; a headless or remote-control session runs the versioned binary directly as `~/.local/share/claude/versions/<v> --print --sdk-url ...` with no `claude` token.
-The guard therefore matches `.local/share/claude` (and the version binary path) anywhere in `/proc/*/cmdline` on Linux, excluding the script's own process tree; the macOS equivalent scans `ps -eo command`.
+The guard therefore matches `.local/share/claude` (and the version binary path) anywhere in `/proc/*/cmdline` on Linux; the macOS equivalent scans `ps -eo command`.
+No explicit self-exclusion is needed: the migration script runs from chezmoi's temporary script dir, so neither it nor the `chezmoi apply` invocation carries that path in its command line, and the only process that legitimately matches is a real Claude Code session (which must abort the run).
 The abort message must warn that detached remote-control sessions are not closed by quitting a terminal and must be stopped explicitly.
 
 The guard exits non-zero, which is mandatory, not cosmetic.
