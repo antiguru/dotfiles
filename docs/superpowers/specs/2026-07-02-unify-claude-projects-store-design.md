@@ -113,10 +113,10 @@ Both profiles are running at design time, and the migrating session itself runs 
 Hard precondition: the migration runs only from a plain shell with both Claude Code instances quit, never from inside a Claude Code session.
 Any `chezmoi apply` invoked from within a session is a descendant of a Claude Code process, so the guard will (correctly) abort it.
 
-Process detection cannot rely on `pgrep -x claude`: live sessions appear in at least three shapes, none of which is a bare `claude` process name.
-A jailed session runs as `bwrap ... -- claude ...`; a headless or remote-control session runs the versioned binary directly as `~/.local/share/claude/versions/<v> --print --sdk-url ...` with no `claude` token.
-The guard therefore matches `.local/share/claude` (and the version binary path) anywhere in `/proc/*/cmdline` on Linux; the macOS equivalent scans `ps -eo command`.
-No explicit self-exclusion is needed: the migration script runs from chezmoi's temporary script dir, so neither it nor the `chezmoi apply` invocation carries that path in its command line, and the only process that legitimately matches is a real Claude Code session (which must abort the run).
+Process detection cannot rely on a single fixed string: live sessions appear in more than one shape.
+An interactive session's `/proc/<pid>/cmdline` is a bare `claude` (arg0 only, no path, confirmed live on this machine); a headless or remote-control session runs the versioned binary directly as `~/.local/share/claude/versions/<v> --print --sdk-url ...`; a jailed session runs under `bwrap` and its inner process resolves to that same versioned-binary path.
+The guard therefore treats a process as a live Claude Code session on Linux if either its arg0 basename is exactly `claude`, or its full command line contains `.local/share/claude/versions/`; the macOS equivalent applies the same two conditions over `ps -eo command`.
+No explicit self-exclusion is needed under these two conditions: the migration script runs via its interpreter, so its arg0 basename is `bash` (not `claude`) and its temporary path contains `migrate-claude-projects`, not `.local/share/claude/versions/`; likewise `chezmoi` itself matches neither condition.
 The abort message must warn that detached remote-control sessions are not closed by quitting a terminal and must be stopped explicitly.
 
 The guard exits non-zero, which is mandatory, not cosmetic.
