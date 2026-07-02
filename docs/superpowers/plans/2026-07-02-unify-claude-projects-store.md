@@ -107,7 +107,7 @@ echo same-todo >"$P/slugShared/todos/t.md"
 echo w-sess >"$W/slugShared/w.jsonl"
 echo p-sess >"$P/slugShared/p.jsonl"
 # slugM: materialize-like: personal memory is a symlink to work's, plus memory.bak
-mkdir -p "$W/slugM/memory"; echo M >"$W/slugM/memory/MEMORY.md"
+mkdir -p "$W/slugM/memory" "$P/slugM"; echo M >"$W/slugM/memory/MEMORY.md"
 ln -s "$W/slugM/memory" "$P/slugM/memory"
 mkdir -p "$P/slugM/memory.bak"; echo junk >"$P/slugM/memory.bak/old.md"
 
