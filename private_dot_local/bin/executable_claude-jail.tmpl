@@ -206,6 +206,9 @@ profile="(version 1)
 (allow file-read* file-write* (subpath \"$config_dir\"))
 (allow file-read* file-write* (literal \"$HOME/.claude.json\")
                               (literal \"$HOME/.claude.json.backup\"))
+;; projects/ in each config_dir is a symlink to this neutral store shared by
+;; both profiles; the resolved target is outside config_dir, so allow it rw.
+(allow file-read* file-write* (subpath \"$HOME/.local/share/claude\"))
 (allow file-read* file-write* (subpath \"$HOME/.cargo\"))
 ;; uv keeps its package cache here (XDG default on macOS too, not ~/Library/Caches);
 ;; rw or every uv/uvx invocation fails to read and rewrite the cache.
