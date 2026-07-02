@@ -358,9 +358,11 @@ git commit -m "claude: declare both profiles' projects as symlinks to the store"
 
 ---
 
-### Task 4: Operator-run apply and verification
+### Task 4: Operator-run migration and verification (surgical)
 
 This task changes the live system. It is run by the operator, not an implementation subagent, and only when every Claude Code session is quit (including the one that produced this plan). Nothing here is committed; Tasks 1-3 already committed the source.
+
+Surgical path (chosen): the migration script is run directly rather than through a full `chezmoi apply`, so the pre-existing, unrelated `settings.json` drift in both profiles is not touched. The script itself creates the store and the symlinks; a full apply is deliberately avoided until that drift is reconciled separately.
 
 **Files:**
 - No source changes. Acts on `~/.claude`, `~/.claude-personal`, `~/.local/share/claude/projects`.
@@ -370,21 +372,16 @@ This task changes the live system. It is run by the operator, not an implementat
 
 - [ ] **Step 1: Merge the branch to the applied source**
 
-The worktree branch must reach the source tree chezmoi applies from (`~/.local/share/chezmoi`). Merge `unify-claude-projects` into `main` there (or the operator's normal integration flow) so `chezmoi apply` sees the new files.
+The worktree branch must reach the source tree chezmoi reads (`~/.local/share/chezmoi`). Merge `unify-claude-projects` into `main` so the migration script lands at `~/.local/share/chezmoi/run_once_before_migrate-claude-projects.sh` and the two `symlink_projects.tmpl` files are present.
 
-- [ ] **Step 2: Preview the diff**
+- [ ] **Step 2: Quit all sessions, then run the migration script directly**
 
-From a plain shell, run: `chezmoi diff`
-Expected: the two `projects` entries change from directory to symlink, and the macOS jail edit appears only on macOS. `chezmoi diff` does not run the migration script, so it shows only the symlink and jail changes.
+Quit every Claude Code session in both profiles, including detached remote-control sessions (they survive closing a terminal). Then, from a plain shell:
 
-- [ ] **Step 3: Quit all sessions, then apply**
+Run: `bash ~/.local/share/chezmoi/run_once_before_migrate-claude-projects.sh`
+Expected: prints `Migration complete. Report: ...`. If a session is still live, it aborts with the guard error and changes nothing; quit the straggler and retry. Running the script directly (not via chezmoi) means chezmoi never records it as run, which is harmless: the Step B short-circuit makes any later `chezmoi apply` re-run a clean no-op.
 
-Quit every Claude Code session in both profiles, including detached remote-control sessions. Then, from a plain shell:
-
-Run: `chezmoi apply --verbose`
-Expected: the migration script runs first, prints `Migration complete. Report: ...`, and chezmoi then reports the two symlinks as already correct (no-op) plus the jail edit. If a session is still live, the run aborts with the guard error and nothing changes; quit the straggler and retry.
-
-- [ ] **Step 4: Verify the result**
+- [ ] **Step 3: Verify the result**
 
 Run:
 ```bash
@@ -392,6 +389,14 @@ readlink ~/.claude/projects ~/.claude-personal/projects
 cat ~/.local/share/claude/projects/migration-report.txt
 ```
 Expected: both `readlink`s print `/home/<you>/.local/share/claude/projects`; the report shows `post store` file count at least the larger per-profile `pre` count and lists any conflicts.
+
+- [ ] **Step 4: Confirm the scoped apply is now a no-op**
+
+Run: `chezmoi diff ~/.claude/projects ~/.claude-personal/projects`
+Expected: empty output. The script already created the exact symlinks chezmoi declares, so there is nothing left to apply for the projects targets, and `settings.json` was never in scope.
+
+On macOS only, also apply the jail edit (it does not affect a running session, which must be restarted to pick it up):
+Run: `chezmoi apply ~/.local/bin/claude-jail`
 
 - [ ] **Step 5: Confirm cross-profile visibility**
 
