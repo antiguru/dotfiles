@@ -10,32 +10,55 @@ set -euo pipefail
 # pulled in by the Debian installer are deliberately excluded.
 apt_packages=(
   aptitude
+  atop
   bc
   bubblewrap
   build-essential
+  calc
   clang
   cmake
   curl
   docker-compose
   docker.io
+  dracut
   etckeeper
   gh
   git
+  iotop
   jq
   lld
   mc
   nodejs
   npm
+  numactl
   pkg-config
+  poppler-utils
   postgresql
   powertop
   python3-venv
   shellcheck
   sudo
+  tailscale
+  time
   tmux
+  tpm2-tools
   vim
   xxd
 )
+# Tailscale ships its own apt repo. Pinned to trixie: Tailscale does not
+# publish for testing/forky, and trixie packages work here.
+ts_distro=trixie
+ts_keyring=/usr/share/keyrings/tailscale-archive-keyring.gpg
+ts_list=/etc/apt/sources.list.d/tailscale.list
+if [ ! -f "$ts_keyring" ]; then
+  curl -fsSL "https://pkgs.tailscale.com/stable/debian/${ts_distro}.noarmor.gpg" \
+    | sudo tee "$ts_keyring" >/dev/null
+fi
+if [ ! -f "$ts_list" ]; then
+  curl -fsSL "https://pkgs.tailscale.com/stable/debian/${ts_distro}.tailscale-keyring.list" \
+    | sudo tee "$ts_list" >/dev/null
+fi
+
 sudo apt-get update
 sudo apt-get install -y "${apt_packages[@]}"
 
