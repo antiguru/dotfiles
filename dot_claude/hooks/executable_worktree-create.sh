@@ -24,8 +24,15 @@ top=$(git -C "$main" rev-parse --show-toplevel 2>>"$LOG") || { echo "not a git r
 wt="$top/.claude/worktrees/$name"
 echo "top=$top wt=$wt" >>"$LOG"
 
+# Idempotent: existing worktree for this branch is success, not failure.
 if [[ -e "$wt" ]]; then
-  echo "worktree path already exists" >>"$LOG"
+  if git -C "$top" worktree list --porcelain 2>>"$LOG" \
+       | grep -qxF "worktree $wt"; then
+    echo "worktree already exists, reusing" >>"$LOG"
+    printf '%s\n' "$wt"
+    exit 0
+  fi
+  echo "path exists but is not a worktree: $wt" >>"$LOG"
   exit 1
 fi
 
