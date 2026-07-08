@@ -12,6 +12,10 @@ claude mcp add --scope user --transport stdio github -- \
 claude mcp remove --scope user pollard 2>/dev/null || true
 claude mcp add --scope user --transport stdio pollard -- pollard
 
+# playwright: browser automation over stdio, fetched on demand via npx.
+claude mcp remove --scope user playwright 2>/dev/null || true
+claude mcp add --scope user --transport stdio playwright -- npx @playwright/mcp@latest
+
 # HTTP MCP servers (main profile only). rustrover is local and only connects
 # when RustRover is running; polarsignals uses short-lived tokens.
 claude mcp remove --scope user polarsignals 2>/dev/null || true
@@ -41,4 +45,6 @@ for dir in "$HOME/.claude-personal"; do
     sh -c 'GITHUB_PERSONAL_ACCESS_TOKEN=$(gh auth token) exec github-mcp-server stdio'
   CLAUDE_CONFIG_DIR="$dir" claude mcp remove --scope user pollard 2>/dev/null || true
   CLAUDE_CONFIG_DIR="$dir" claude mcp add --scope user --transport stdio pollard -- pollard
+  CLAUDE_CONFIG_DIR="$dir" claude mcp remove --scope user playwright 2>/dev/null || true
+  CLAUDE_CONFIG_DIR="$dir" claude mcp add --scope user --transport stdio playwright -- npx @playwright/mcp@latest
 done
