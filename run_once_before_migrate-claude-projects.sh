@@ -45,7 +45,9 @@ claude_running() {
       return 1
       ;;
     Darwin)
-      ps -eo command 2>/dev/null | grep -Eq '(^|/)claude( |$)|\.local/share/claude/versions/' && return 0
+      # [c]laude keeps the pattern's own text from containing the literal
+      # substring, so this grep never matches its own argv in `ps` output.
+      ps -eo command 2>/dev/null | grep -Eq '(^|/)[c]laude( |$)|\.local/share/[c]laude/versions/' && return 0
       return 1
       ;;
     *) return 1 ;;
@@ -86,9 +88,10 @@ done
 
 # --- Step F prep: pre-migration counts --------------------------------------
 count_files() { find "$1" -type f 2>/dev/null | wc -l | tr -d ' '; }
-declare -A pre
-for src in "${profiles[@]}"; do
-  [[ -e "$src" ]] && pre["$src"]=$(count_files "$src") || pre["$src"]=0
+# Parallel to profiles by index; associative arrays need bash 4, macOS ships 3.2.
+pre=()
+for i in "${!profiles[@]}"; do
+  [[ -e "${profiles[$i]}" ]] && pre[$i]=$(count_files "${profiles[$i]}") || pre[$i]=0
 done
 
 # --- Step C + D: conflict-aware, symlink-resolving merge --------------------
@@ -132,7 +135,7 @@ done
 post=$(count_files "$store")
 {
   printf 'migration-report %s\n' "$(date -u +%FT%TZ)"
-  for src in "${profiles[@]}"; do printf 'pre  %s: %s files\n' "$src" "${pre["$src"]:-0}"; done
+  for i in "${!profiles[@]}"; do printf 'pre  %s: %s files\n' "${profiles[$i]}" "${pre[$i]:-0}"; done
   printf 'post store: %s files\n' "$post"
   if ((${#conflicts[@]})); then
     printf 'conflicts (%s):\n' "${#conflicts[@]}"; printf '  %s\n' "${conflicts[@]}"
