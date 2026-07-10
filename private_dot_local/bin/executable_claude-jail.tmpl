@@ -63,6 +63,8 @@ args=(
   # Claude launcher + versions; rw so auto-update works.
   --bind "$HOME/.local/bin" "$HOME/.local/bin"
   --bind "$HOME/.local/share/claude" "$HOME/.local/share/claude"
+  # /opt: teleport (tsh) and other system-installed tools, read-only.
+  --ro-bind-try /opt /opt
   # Credentials for git push / gh, read-only.
   --ro-bind-try "$HOME/.ssh" "$HOME/.ssh"
   # Materialize license key file ($MZ_LICENSE_KEY points here).
