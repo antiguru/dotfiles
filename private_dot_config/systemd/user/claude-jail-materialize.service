@@ -1,0 +1,15 @@
+[Unit]
+Description=claude-jail remote-control (materialize)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=PATH=%h/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+WorkingDirectory=%h/dev/repos/materialize
+ExecStart=%h/.local/bin/claude-jail remote-control
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

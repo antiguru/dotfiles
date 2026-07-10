@@ -1,0 +1,16 @@
+[Unit]
+Description=claude-jail remote-control (barrelcrab, personal profile)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=CLAUDE_CONFIG_DIR=%h/.claude-personal
+Environment=PATH=%h/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+WorkingDirectory=%h/dev/repos/barrelcrab
+ExecStart=%h/.local/bin/claude-jail remote-control
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
