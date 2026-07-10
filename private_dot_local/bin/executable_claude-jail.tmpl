@@ -69,6 +69,7 @@ args=(
   --ro-bind-try "$HOME/.ssh" "$HOME/.ssh"
   # Materialize license key file ($MZ_LICENSE_KEY points here).
   --ro-bind-try "${MZ_LICENSE_KEY:-$HOME/.mz-license-key}" "${MZ_LICENSE_KEY:-$HOME/.mz-license-key}"
+  --ro-bind-try "$HOME/.config/materialize" "$HOME/.config/materialize"
   --ro-bind-try "$HOME/.gitconfig" "$HOME/.gitconfig"
   --ro-bind-try "$HOME/.config/gh" "$HOME/.config/gh"
   --ro-bind-try "$HOME/.config/git" "$HOME/.config/git"
@@ -222,13 +223,14 @@ profile="(version 1)
 (allow file-read* (literal \"$HOME/.claude/statusline.py\")
                   (subpath \"$HOME/.claude/hooks\"))
 
-;; read-only: toolchain, shell init, git/gh config
+;; read-only: toolchain, shell init, git/gh config, materialize config
 (allow file-read* (subpath \"$HOME/.rustup\")
                   (literal \"$HOME/.zshrc\") (literal \"$HOME/.zshenv\")
                   (subpath \"$HOME/.oh-my-zsh\")
                   (literal \"$HOME/.gitconfig\") (literal \"$HOME/.gitignore\")
                   (subpath \"$HOME/.config/git\")
-                  (subpath \"$HOME/.config/gh\"))
+                  (subpath \"$HOME/.config/gh\")
+                  (subpath \"$HOME/.config/materialize\"))
 
 ;; ssh: agent only; known_hosts + config ro; private keys not allowed.
 ;; ~/.ssh/config unconditionally Includes ~/.orbstack/ssh/config; an unreadable
