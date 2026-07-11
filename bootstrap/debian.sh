@@ -28,6 +28,7 @@ apt_packages=(
   jq
   lld
   mc
+  mosh
   nodejs
   npm
   numactl
