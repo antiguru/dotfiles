@@ -32,6 +32,7 @@ apt_packages=(
   nodejs
   npm
   numactl
+  passt
   pkg-config
   poppler-utils
   postgresql

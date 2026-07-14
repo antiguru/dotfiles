@@ -6,6 +6,11 @@
 # Docker socket, ssh agent + creds (ro), network.
 # Everything else in $HOME hidden behind tmpfs.
 #
+# Leading --netns runs the jail in its own network namespace (via pasta) so a
+# server started inside (e.g. a Materialize environmentd) does not collide on
+# ports with the host or other jails, while host services stay reachable at
+# their usual localhost:port. Requires the passt package.
+#
 # Honors CLAUDE_CONFIG_DIR (e.g. claude-personal alias).
 # Design: ~/.claude/plans/claude-jail.md
 set -euo pipefail
@@ -23,6 +28,16 @@ docker_gid="$(stat -c %g /var/run/docker.sock 2>/dev/null || true)"
 if [[ -n "$docker_gid" && "$(id -g)" != "$docker_gid" ]] \
     && id -G | tr ' ' '\n' | grep -qx "$docker_gid"; then
   exec sg docker -c "$(printf '%q ' "$0" "$@")"
+fi
+
+# Opt-in: --netns runs the jail in its own network namespace so bound ports
+# (e.g. a Materialize environmentd) don't collide with other jails or the host.
+# pasta gives that namespace userspace NAT for egress, plus -T to reach a host
+# service on the same port inside the ns (Cockroach on 26257).
+netns=0
+if [[ "${1:-}" == "--netns" ]]; then
+  netns=1
+  shift
 fi
 
 args=(
@@ -93,9 +108,29 @@ esac
 args+=(
   --chdir "$cwd"
   --unshare-all
+  # Keep --share-net even with --netns: pasta spawns us inside its own network
+  # namespace, and --share-net makes bwrap inherit that ns instead of creating
+  # a fresh empty one. Without --netns this is the host network namespace.
   --share-net
   --die-with-parent
 )
+
+# --netns: wrap the whole thing in pasta.
+#   --config-net     copy host addressing/routes into the ns; NAT egress out.
+#   -t none -u none  disable inbound host->ns port forwarding, so the jail binds
+#                    its own ports freely. Two jails (or a jail and the host) can
+#                    each bind e.g. environmentd's 6875 with no collision.
+# pasta's default outbound splice (-T auto) still forwards ns->host for ports the
+# jail is not itself binding, so a jailed environmentd reaches the host Cockroach
+# at the usual localhost:26257 with no Materialize config change.
+launcher=()
+if [[ "$netns" -eq 1 ]]; then
+  launcher=(pasta --config-net -t none -u none --)
+  # pasta's userns maps us to uid 0. bwrap's nested userns remaps that single
+  # uid back to the real one, so claude does not refuse
+  # --dangerously-skip-permissions as root.
+  args+=(--uid "$uid" --gid "$(id -g)")
+fi
 
 # Jail is the permission boundary; skip per-tool prompts inside.
 # Known holes (accepted): docker.sock = host root; creds + network live inside.
@@ -116,11 +151,11 @@ case "${1:-}" in
     if [[ "$has_perm_mode" -eq 0 ]]; then
       rc_args+=(--permission-mode bypassPermissions)
     fi
-    exec bwrap "${args[@]}" -- claude "${rc_args[@]}"
+    exec "${launcher[@]}" bwrap "${args[@]}" -- claude "${rc_args[@]}"
     ;;
 esac
 
-exec bwrap "${args[@]}" -- claude --dangerously-skip-permissions "$@"
+exec "${launcher[@]}" bwrap "${args[@]}" -- claude --dangerously-skip-permissions "$@"
 {{- else if eq .chezmoi.os "darwin" -}}
 #!/usr/bin/env bash
 # claude-jail (macOS): run Claude Code inside a sandbox-exec (Seatbelt) jail.
