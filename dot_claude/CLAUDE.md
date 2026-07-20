@@ -79,7 +79,7 @@ This applies to `~/dev/repos/materialize`.
 
 * To commit, do the following first:
   * Check that a change is clean, run `bin/lint`.
-  * Use `bin/pyfmt` to format .py files.
+  * Use `bin/fmt` to format many files according to Materialize's preference.
   * Use `cargo fmt` to format .rs files.
   * Run `cargo clippy`
   * A change is clean when no (unexpected) warnings are left.
