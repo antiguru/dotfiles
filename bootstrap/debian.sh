@@ -22,10 +22,13 @@ apt_packages=(
   docker.io
   dracut
   etckeeper
+  gdb
   gh
   git
+  hugo
   iotop
   jq
+  linux-perf
   lld
   mc
   mosh
@@ -38,12 +41,16 @@ apt_packages=(
   postgresql
   powertop
   python3-venv
+  qemu-system
+  rr
   shellcheck
+  strace
   sudo
   tailscale
   time
   tmux
   tpm2-tools
+  valgrind
   vim
   xxd
 )
@@ -84,4 +91,18 @@ sysctl_want=$'kernel.perf_event_paranoid = -1\nkernel.kptr_restrict = 0'
 if [ "$(cat "$sysctl_dropin" 2>/dev/null)" != "$sysctl_want" ]; then
   printf '%s\n' "$sysctl_want" | sudo install -Dm644 /dev/stdin "$sysctl_dropin"
   sudo sysctl --system
+fi
+
+# Make /dev/kvm usable from inside claude-jail. The jail's user namespace maps a
+# single gid, so the kvm group is unmapped there and the group bits can never
+# match, no matter which groups the outer user is in. Widening the mode is the
+# only way in. Cost: every local user, and every sandbox on this kernel, can
+# create VMs (arbitrary guest code, unbounded host memory/CPU). Acceptable on a
+# single-user workstation only.
+kvm_rule=/etc/udev/rules.d/99-kvm.rules
+kvm_want='KERNEL=="kvm", GROUP="kvm", MODE="0666"'
+if [ "$(cat "$kvm_rule" 2>/dev/null)" != "$kvm_want" ]; then
+  printf '%s\n' "$kvm_want" | sudo install -Dm644 /dev/stdin "$kvm_rule"
+  sudo udevadm control --reload
+  sudo udevadm trigger --name-match=kvm
 fi

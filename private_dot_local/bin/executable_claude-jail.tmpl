@@ -53,6 +53,11 @@ args=(
   --tmpfs /etc/ssh/ssh_config.d
   --proc /proc
   --dev /dev
+  # KVM for nested VMs. --dev tmpfs has no kvm node, so bind the host one back
+  # on top of it. Binding only makes the node visible: the userns maps a single
+  # gid, so the kvm group (991) is unmapped and the group bits can never match.
+  # /dev/kvm must be world-accessible on the host (udev MODE="0666").
+  --dev-bind-try /dev/kvm /dev/kvm
   # Hide /run and /var; recreate the /var/run -> /run symlink.
   --tmpfs /run
   --tmpfs /var
