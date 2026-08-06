@@ -34,7 +34,7 @@ install_tar() {
 
 # buf: single binary, asset named buf-Linux-<arch>.
 # renovate: datasource=github-releases depName=bufbuild/buf
-buf_version="1.71.0"
+buf_version="1.72.0"
 if ! at_version "$bin/buf" "$buf_version"; then
   curl -fsSL \
     "https://github.com/bufbuild/buf/releases/download/v${buf_version}/buf-Linux-${buf_arch}" \
