@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# memcap: run a command under a hard memory cap, enforced by cgroup v2.
+#
+#   memcap 1G ./target/debug/environmentd
+#   memcap 512M cargo test -- --nocapture
+#
+# The cap is memory.max on a fresh cgroup, so it reproduces production memory
+# pressure: the kernel reclaims first, then OOM-kills when it cannot. Swap is
+# pinned to 0 so the cap bounds RSS rather than RSS plus swap.
+#
+# Replaces `systemd-run --user --scope -p MemoryMax=...`, which only works
+# because systemd does the cgroup write on our behalf over D-Bus. claude-jail
+# has no bus socket, and binding one in would let jailed code start processes on
+# the host, so we write memory.max ourselves. systemd delegates
+# user@$uid.service to us, so subdividing it needs no root.
+#
+# Parent cgroup: $CLAUDE_JAIL_CGROUP inside claude-jail (the only cgroup bound
+# into the jail), else the delegated user@$uid.service.
+set -euo pipefail
+
+if [[ $# -lt 2 || "$1" == -h || "$1" == --help ]]; then
+  echo "usage: memcap LIMIT COMMAND [ARG...]" >&2
+  echo "       LIMIT is a cgroup memory.max value: 1G, 512M, or plain bytes." >&2
+  exit 2
+fi
+limit="$1"
+shift
+
+uid="$(id -u)"
+parent="${CLAUDE_JAIL_CGROUP:-/sys/fs/cgroup/user.slice/user-$uid.slice/user@$uid.service}"
+if [[ ! -w "$parent/cgroup.subtree_control" ]]; then
+  echo "memcap: no writable cgroup at $parent" >&2
+  echo "memcap: expected a systemd-delegated user cgroup, or CLAUDE_JAIL_CGROUP inside claude-jail." >&2
+  exit 1
+fi
+
+# A child cgroup can only carry memory.max if the parent hands the controller
+# down. Outside the jail systemd already does this; inside, claude-jail does.
+if ! grep -qw memory "$parent/cgroup.subtree_control"; then
+  if ! echo +memory > "$parent/cgroup.subtree_control" 2>/dev/null; then
+    echo "memcap: cannot enable the memory controller in $parent" >&2
+    exit 1
+  fi
+fi
+
+cg="$parent/memcap-$$"
+mkdir "$cg"
+cleanup() {
+  if ! rmdir "$cg" 2>/dev/null; then
+    echo "memcap: left $cg behind, processes are still in it" >&2
+  fi
+}
+trap cleanup EXIT
+
+printf '%s\n' "$limit" > "$cg/memory.max"
+# Without this the cap only pushes pages to swap, which masks the behaviour the
+# cap exists to expose.
+printf '0\n' > "$cg/memory.swap.max"
+# Kill the whole group, not just the largest member, so a multi-process run dies
+# as a unit instead of limping on with a worker missing.
+printf '1\n' > "$cg/memory.oom.group"
+
+# The command moves itself in from a subshell so this shell stays outside the
+# group: a cgroup cannot be removed while it still has members. $BASHPID, not
+# $$, because $$ keeps reporting the parent's pid inside a subshell.
+status=0
+( echo "$BASHPID" > "$cg/cgroup.procs"; exec "$@" ) || status=$?
+
+peak="$(cat "$cg/memory.peak" 2>/dev/null || true)"
+oom_kill="$(awk '$1 == "oom_kill" { print $2 }' "$cg/memory.events" 2>/dev/null || true)"
+if [[ "${oom_kill:-0}" -gt 0 ]]; then
+  human="${peak:-unknown}"
+  if [[ -n "$peak" ]] && command -v numfmt > /dev/null; then
+    human="$(numfmt --to=iec "$peak")"
+  fi
+  echo "memcap: OOM-killed at the $limit cap (peak $human)" >&2
+  # A group kill arrives as SIGKILL, which some runners report as success.
+  if [[ "$status" -eq 0 ]]; then
+    status=137
+  fi
+fi
+
+exit "$status"

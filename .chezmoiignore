@@ -3,6 +3,8 @@
 {{- end }}
 {{- if ne .chezmoi.os "linux" }}
 .config/systemd/**
+# memcap enforces its cap with cgroup v2, which only exists on Linux.
+.local/bin/memcap
 {{- end }}
 {{- if ne .shell "zsh" }}
 .zshrc

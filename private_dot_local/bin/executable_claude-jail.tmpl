@@ -3,7 +3,7 @@
 # claude-jail: run Claude Code inside a bwrap jail.
 #
 # Visible/writable: cwd + ~/dev/repos, Claude config dir, ~/.cargo,
-# Docker socket, ssh agent + creds (ro), network.
+# Docker socket, ssh agent + creds (ro), network, one own cgroup (for memcap).
 # Everything else in $HOME hidden behind tmpfs.
 #
 # Leading --netns runs the jail in its own network namespace (via pasta) so a
@@ -28,6 +28,36 @@ docker_gid="$(stat -c %g /var/run/docker.sock 2>/dev/null || true)"
 if [[ -n "$docker_gid" && "$(id -g)" != "$docker_gid" ]] \
     && id -G | tr ' ' '\n' | grep -qx "$docker_gid"; then
   exec sg docker -c "$(printf '%q ' "$0" "$@")"
+fi
+
+# Per-jail cgroup, so ~/.local/bin/memcap can run a command under a memory cap.
+# systemd delegates user@$uid.service to us, so a child cgroup there takes
+# memory.max without root and without systemd-run's D-Bus round trip: the jail
+# has no bus socket, and binding one in would let jailed code start processes on
+# the host. Only this one directory is bound into the jail, so memcap can shape
+# the jail's own processes and nothing else of the user's.
+cgroup_root="/sys/fs/cgroup/user.slice/user-$uid.slice/user@$uid.service"
+jail_cgroup=""
+if [[ -w "$cgroup_root/cgroup.subtree_control" ]]; then
+  # Nothing else reaps these, so drop the ones left by jails that have exited.
+  # Emptiness is not the test: a live jail's own processes stay in the cgroup
+  # they were started from, so its cgroup here sits empty between memcap runs.
+  # The suffix is the pid of this script, which `exec bwrap` below keeps, so a
+  # live pid means a live jail.
+  for stale in "$cgroup_root"/claude-jail-*; do
+    [[ -d "$stale" ]] || continue
+    [[ -d "/proc/${stale##*-}" ]] && continue
+    find "$stale" -depth -type d -exec rmdir {} + 2>/dev/null
+  done
+  # No .scope/.service suffix: systemd reaps cgroups that look like its units.
+  jail_cgroup="$cgroup_root/claude-jail-$$"
+  # memcap sets memory.max on a child, which only works if we hand the
+  # controller down. Enabling it also forbids processes in this cgroup itself,
+  # which suits us: the jail stays where it is and only memcap's children move.
+  if ! (mkdir -p "$jail_cgroup" && echo +memory > "$jail_cgroup/cgroup.subtree_control") 2>/dev/null; then
+    rmdir "$jail_cgroup" 2>/dev/null || true
+    jail_cgroup=""
+  fi
 fi
 
 # Opt-in: --netns runs the jail in its own network namespace so bound ports
@@ -99,6 +129,13 @@ args=(
   --ro-bind-try "$HOME/.oh-my-zsh" "$HOME/.oh-my-zsh"
 )
 
+if [[ -n "$jail_cgroup" ]]; then
+  args+=(
+    --bind "$jail_cgroup" "$jail_cgroup"
+    --setenv CLAUDE_JAIL_CGROUP "$jail_cgroup"
+  )
+fi
+
 # ssh agent socket.
 if [[ -n "${SSH_AUTH_SOCK:-}" && -S "$SSH_AUTH_SOCK" ]]; then
   args+=(--bind "$SSH_AUTH_SOCK" "$SSH_AUTH_SOCK")
@@ -112,7 +149,16 @@ esac
 
 args+=(
   --chdir "$cwd"
-  --unshare-all
+  # --unshare-all minus the cgroup namespace, which has to stay shared: cgroup2
+  # is mounted with nsdelegate, so a process in its own cgroup namespace cannot
+  # be moved into a cgroup outside that namespace's root, and CLAUDE_JAIL_CGROUP
+  # sits outside it. Unsharing it makes memcap's write to cgroup.procs fail with
+  # ENOENT. Sharing costs the jail's own cgroup path in /proc/self/cgroup; other
+  # processes' paths stay hidden behind --unshare-pid.
+  --unshare-user-try
+  --unshare-ipc
+  --unshare-pid
+  --unshare-uts
   # Keep --share-net even with --netns: pasta spawns us inside its own network
   # namespace, and --share-net makes bwrap inherit that ns instead of creating
   # a fresh empty one. Without --netns this is the host network namespace.

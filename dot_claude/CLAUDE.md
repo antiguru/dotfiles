@@ -10,6 +10,13 @@
 * If a file system operation fails due to insufficient permissions, ask me the fix it.
 * Never attempt to use `sudo`.
 
+# Running programs
+
+* To cap a program's memory, use `memcap LIMIT CMD`, e.g. `memcap 1G ./target/debug/environmentd`.
+  It sets cgroup `memory.max`, so the program is OOM-killed at the cap and exits 137.
+* Never use `systemd-run` for this.
+  It needs a D-Bus socket that claude-jail does not have.
+
 # Pull requests
 
 * Keep pull requst comments short and precise. Do not outline test plans or specific code changes.
