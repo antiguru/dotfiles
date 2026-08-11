@@ -18,7 +18,6 @@
 
 # Markdown
 
-* In markdown, put each sentence on its own line.
 * In text, structure paragraphs into 4-5 sentences, where the first describes a concept, the middle 2-3 support the concept, and the last one connects it to the next paragraph or broader context.
 * Only make claims that are based on evidence.
   If there's no evidence, ask the user what to do.
