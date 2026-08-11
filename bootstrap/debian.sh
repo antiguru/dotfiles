@@ -25,6 +25,7 @@ apt_packages=(
   gdb
   gh
   git
+  heaptrack
   hugo
   iotop
   jq
@@ -40,6 +41,7 @@ apt_packages=(
   poppler-utils
   postgresql
   powertop
+  psmisc
   python3-venv
   qemu-system
   rr
