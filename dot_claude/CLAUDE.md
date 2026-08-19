@@ -9,6 +9,9 @@
 * Never drop comments, especially when refactoring code.
 * If a file system operation fails due to insufficient permissions, ask me the fix it.
 * Never attempt to use `sudo`.
+* Keep chat responses terse. Fragments fine, drop filler and hedging.
+  If caveman mode is active, follow it in chat.
+  Code, commits, pull requests, and docs stay in normal prose.
 
 # Running programs
 
@@ -24,6 +27,9 @@
 * Do not include a test plan in the pull request description.
 
 # Markdown
+
+These rules cover markdown other people see: docs, commit messages, pull requests, and files in the repo.
+They do not cover chat responses to me.
 
 * In text, structure paragraphs into 4-5 sentences, where the first describes a concept, the middle 2-3 support the concept, and the last one connects it to the next paragraph or broader context.
 * Only make claims that are based on evidence.
@@ -49,6 +55,7 @@
 # Github
 
 * Prefer github MCP over `gh` tool.
+* Mark posts to GitHub (issues, comments, reviews, pull requests) as posted by Claude Code.
 
 # Rust
 
