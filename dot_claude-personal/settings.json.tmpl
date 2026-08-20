@@ -76,6 +76,16 @@
           }
         ]
       }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/python3 {{ .chezmoi.homeDir }}/.claude/hooks/timestamp-context.py"
+          }
+        ]
+      }
     ]
   },
   "statusLine": {
@@ -133,6 +143,7 @@
   "tui": "fullscreen",
   "editorMode": "vim",
   "agentPushNotifEnabled": true,
+  "skipDangerousModePermissionPrompt": true,
   "effortLevel": "xhigh",
   "autoDreamEnabled": true,
   "theme": "dark",

@@ -68,6 +68,16 @@
           }
         ]
       }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/python3 {{ .chezmoi.homeDir }}/.claude/hooks/timestamp-context.py"
+          }
+        ]
+      }
     ]
   },
   "statusLine": {
