@@ -25,7 +25,9 @@ apt_packages=(
   gdb
   gh
   git
+  gpg
   heaptrack
+  helm
   hugo
   iotop
   jq
@@ -68,6 +70,29 @@ fi
 if [ ! -f "$ts_list" ]; then
   curl -fsSL "https://pkgs.tailscale.com/stable/debian/${ts_distro}.tailscale-keyring.list" \
     | sudo tee "$ts_list" >/dev/null
+fi
+
+# Helm ships its own apt repo on Buildkite's package registry.
+helm_key_id=DDF78C3E6EBB2D2CC223C95C62BA89D07698DBC6
+helm_keyring=/usr/share/keyrings/helm.gpg
+helm_list=/etc/apt/sources.list.d/helm-stable-debian.list
+if [ ! -f "$helm_keyring" ]; then
+  helm_key=$(mktemp)
+  curl -fsSL https://packages.buildkite.com/helm-linux/helm-debian/gpgkey >"$helm_key"
+  # Pin the fingerprint: a compromised repo must not be able to install its own
+  # signing key.
+  helm_key_got=$(gpg --show-keys --with-colons "$helm_key" \
+    | awk -F: '$1 == "fpr" {print $10}' | head -n 1)
+  if [ "$helm_key_got" != "$helm_key_id" ]; then
+    echo "ERROR: unexpected Helm APT key ID: $helm_key_got" >&2
+    exit 1
+  fi
+  gpg --dearmor <"$helm_key" | sudo tee "$helm_keyring" >/dev/null
+  rm -f "$helm_key"
+fi
+if [ ! -f "$helm_list" ]; then
+  echo "deb [signed-by=$helm_keyring] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main" \
+    | sudo tee "$helm_list" >/dev/null
 fi
 
 sudo apt-get update
