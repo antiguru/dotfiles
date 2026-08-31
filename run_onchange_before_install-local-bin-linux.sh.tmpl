@@ -51,7 +51,7 @@ at_version "$bin/helm-docs" "$helm_docs_version" || install_tar \
 
 # trufflehog
 # renovate: datasource=github-releases depName=trufflesecurity/trufflehog
-trufflehog_version="3.95.6"
+trufflehog_version="3.97.1"
 at_version "$bin/trufflehog" "$trufflehog_version" || install_tar \
   "https://github.com/trufflesecurity/trufflehog/releases/download/v${trufflehog_version}/trufflehog_${trufflehog_version}_linux_${th_arch}.tar.gz" \
   trufflehog
