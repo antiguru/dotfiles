@@ -58,7 +58,7 @@ at_version "$bin/trufflehog" "$trufflehog_version" || install_tar \
 
 # uv ships uv + uvx; the release tag has no leading v.
 # renovate: datasource=github-releases depName=astral-sh/uv
-uv_version="0.11.23"
+uv_version="0.12.7"
 at_version "$bin/uv" "$uv_version" || install_tar \
   "https://github.com/astral-sh/uv/releases/download/${uv_version}/uv-${uv_arch}-unknown-linux-gnu.tar.gz" \
   uv uvx
