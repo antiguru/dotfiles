@@ -16,6 +16,10 @@
 .bashrc
 .bash_profile
 {{- end }}
+# Disabled, not removed: the one-time projects migration refuses to run while any
+# Claude Code session is live, which aborts every apply started from one.
+migrate-claude-projects.sh
+
 **/__pycache__
 **/*.pyc
 docs/**
