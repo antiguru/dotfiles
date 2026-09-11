@@ -58,6 +58,9 @@
     ]
   },
   "model": "claude-opus-4-8",
+  "env": {
+    "MZ_CI_DEV_TOKEN": "{{ include "ci_dev_token.age" | decrypt | trim }}"
+  },
   "hooks": {
     "WorktreeCreate": [
       {
@@ -65,16 +68,6 @@
           {
             "type": "command",
             "command": "{{ .chezmoi.homeDir }}/.claude/hooks/worktree-create.sh"
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/usr/bin/python3 {{ .chezmoi.homeDir }}/.claude/hooks/timestamp-context.py"
           }
         ]
       }
@@ -94,7 +87,7 @@
     "claude-md-management@claude-plugins-official": true,
     "superpowers@claude-plugins-official": true,
     "github@claude-plugins-official": false,
-    "linear@claude-plugins-official": false,
+    "linear@claude-plugins-official": true,
     "lumen@ory": false,
     "caveman@caveman": true,
     "plugin-dev@claude-plugins-official": true,
@@ -125,7 +118,9 @@
     }
   },
   "tui": "fullscreen",
+  "theme": "dark",
   "editorMode": "vim",
+  "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
   "skipDangerousModePermissionPrompt": true
 }

@@ -25,3 +25,4 @@ CLAUDE.md
 # Encrypted credential helpers: included+decrypted into target files, never applied standalone.
 .config/materialize/*.age
 grafana_token.age
+ci_dev_token.age
