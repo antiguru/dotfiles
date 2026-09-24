@@ -1,4 +1,7 @@
 {
+  "env": {
+    "MZ_CI_DEV_TOKEN": "{{ include "ci_dev_token.age" | decrypt | trim }}"
+  },
   "permissions": {
     "allow": [
       "Bash(bk artifacts download:*)",
@@ -57,10 +60,6 @@
       "mcp__buildkite"
     ]
   },
-  "model": "claude-opus-4-8",
-  "env": {
-    "MZ_CI_DEV_TOKEN": "{{ include "ci_dev_token.age" | decrypt | trim }}"
-  },
   "hooks": {
     "WorktreeCreate": [
       {
@@ -118,9 +117,9 @@
     }
   },
   "tui": "fullscreen",
+  "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
   "editorMode": "vim",
   "inputNeededNotifEnabled": true,
-  "agentPushNotifEnabled": true,
-  "skipDangerousModePermissionPrompt": true
+  "agentPushNotifEnabled": true
 }
