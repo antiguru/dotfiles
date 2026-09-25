@@ -25,12 +25,14 @@ apt_packages=(
   gdb
   gh
   git
+  git-svn
   gpg
   heaptrack
   helm
   hugo
   iotop
   jq
+  linux-cpupower
   linux-perf
   lld
   mc
@@ -49,8 +51,10 @@ apt_packages=(
   rr
   shellcheck
   strace
+  subversion
   sudo
   tailscale
+  teleport-ent
   time
   tmux
   tpm2-tools
@@ -93,6 +97,30 @@ fi
 if [ ! -f "$helm_list" ]; then
   echo "deb [signed-by=$helm_keyring] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main" \
     | sudo tee "$helm_list" >/dev/null
+fi
+
+# Teleport ships its own apt repo, keyed by the Debian codename.
+teleport_key_id=0C5E8BA5658E320D1B031179C87ED53A6282C411
+teleport_keyring=/etc/apt/keyrings/teleport-archive-keyring.asc
+teleport_list=/etc/apt/sources.list.d/teleport.list
+if [ ! -f "$teleport_keyring" ]; then
+  teleport_key=$(mktemp)
+  curl -fsSL https://apt.releases.teleport.dev/gpg >"$teleport_key"
+  # Pin the fingerprint, as for Helm.
+  teleport_key_got=$(gpg --show-keys --with-colons "$teleport_key" \
+    | awk -F: '$1 == "fpr" {print $10}' | head -n 1)
+  if [ "$teleport_key_got" != "$teleport_key_id" ]; then
+    echo "ERROR: unexpected Teleport APT key ID: $teleport_key_got" >&2
+    exit 1
+  fi
+  sudo install -Dm644 "$teleport_key" "$teleport_keyring"
+  rm -f "$teleport_key"
+fi
+if [ ! -f "$teleport_list" ]; then
+  # shellcheck source=/dev/null
+  teleport_distro=$(. /etc/os-release && echo "$VERSION_CODENAME")
+  echo "deb [signed-by=$teleport_keyring] https://apt.releases.teleport.dev/debian $teleport_distro stable/v18" \
+    | sudo tee "$teleport_list" >/dev/null
 fi
 
 sudo apt-get update
