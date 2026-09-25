@@ -183,7 +183,7 @@ if [ "$(cat "$zswap_conf" 2>/dev/null)" != "$zswap_want" ]; then
   sudo systemd-tmpfiles --create "$zswap_conf"
 fi
 
-# Pass TRIM through dm-crypt to the SSD, and trim weekly. Without the crypttab
+# Pass TRIM through dm-crypt to the SSD, and trim daily. Without the crypttab
 # discard option, dm-crypt drops discards, so fstrim frees nothing on the SSD.
 # Cost: the SSD's free-space pattern becomes visible on the raw device, which
 # leaks filesystem layout (not contents). The root volume is unlocked in the
@@ -198,6 +198,16 @@ crypttab_want=$(awk '
 if [ "$(cat /etc/crypttab)" != "$crypttab_want" ]; then
   printf '%s\n' "$crypttab_want" | sudo install -m644 /dev/stdin /etc/crypttab
   sudo dracut --force --regenerate-all
+fi
+# Build churn writes hundreds of GB a day, so the stock weekly timer leaves
+# several TB of deleted blocks untrimmed between runs. The empty OnCalendar=
+# clears the packaged weekly schedule before setting the daily one.
+fstrim_dropin=/etc/systemd/system/fstrim.timer.d/daily.conf
+fstrim_want=$'[Timer]\nOnCalendar=\nOnCalendar=daily'
+if [ "$(cat "$fstrim_dropin" 2>/dev/null)" != "$fstrim_want" ]; then
+  printf '%s\n' "$fstrim_want" | sudo install -Dm644 /dev/stdin "$fstrim_dropin"
+  sudo systemctl daemon-reload
+  sudo systemctl restart fstrim.timer
 fi
 if ! systemctl is-enabled --quiet fstrim.timer; then
   sudo systemctl enable --now fstrim.timer
