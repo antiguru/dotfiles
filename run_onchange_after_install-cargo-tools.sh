@@ -14,6 +14,6 @@ ensure() { grep -qxF "$1 v$2:" <<<"$installed" || cargo install --locked "$1@$2"
 ensure zizmor 1.30.1
 ensure cargo-deny 0.20.2
 ensure cargo-deplint 0.1.0
-ensure cargo-nextest 0.9.145
+ensure cargo-nextest 0.9.146
 ensure samply 0.13.1
 ensure pollard 0.0.9
