@@ -133,3 +133,59 @@ if [ "$(cat "$kvm_rule" 2>/dev/null)" != "$kvm_want" ]; then
   sudo udevadm control --reload
   sudo udevadm trigger --name-match=kvm
 fi
+
+# Put a compressed RAM cache (zswap) in front of the disk swap, and prefer
+# dropping page cache over swapping. Swap sits behind dm-crypt, so every swap-in
+# is a 4K random read plus decryption. Under large tmpfs build trees that
+# saturated the NVMe while CPUs sat idle. zswap is built into the kernel
+# (CONFIG_ZSWAP=y), so modprobe.d options are ignored and its parameters go
+# through sysfs at boot via tmpfiles. The shrinker writes cold pages back to
+# disk swap, keeping the pool LRU-ordered instead of filling up with stale pages.
+# The compressor line comes first so the pool never starts with the lzo default.
+swap_sysctl=/etc/sysctl.d/99-swappiness.conf
+swap_sysctl_want='vm.swappiness = 10'
+if [ "$(cat "$swap_sysctl" 2>/dev/null)" != "$swap_sysctl_want" ]; then
+  printf '%s\n' "$swap_sysctl_want" | sudo install -Dm644 /dev/stdin "$swap_sysctl"
+  sudo sysctl --system
+fi
+zswap_conf=/etc/tmpfiles.d/zswap.conf
+zswap_want=$'w- /sys/module/zswap/parameters/compressor       - - - - zstd\nw- /sys/module/zswap/parameters/shrinker_enabled - - - - Y\nw- /sys/module/zswap/parameters/enabled          - - - - Y'
+if [ "$(cat "$zswap_conf" 2>/dev/null)" != "$zswap_want" ]; then
+  printf '%s\n' "$zswap_want" | sudo install -Dm644 /dev/stdin "$zswap_conf"
+  sudo systemd-tmpfiles --create "$zswap_conf"
+fi
+
+# Pass TRIM through dm-crypt to the SSD, and trim weekly. Without the crypttab
+# discard option, dm-crypt drops discards, so fstrim frees nothing on the SSD.
+# Cost: the SSD's free-space pattern becomes visible on the raw device, which
+# leaks filesystem layout (not contents). The root volume is unlocked in the
+# initrd (x-initrd.attach), so the initrd must be rebuilt to pick up the change,
+# and it takes effect at the next boot.
+crypttab_want=$(awk '
+  !/^[[:space:]]*(#|$)/ && $4 ~ /(^|,)luks(,|$)/ && $4 !~ /(^|,)discard(,|$)/ {
+    $4 = $4 ",discard"
+  }
+  { print }
+' /etc/crypttab)
+if [ "$(cat /etc/crypttab)" != "$crypttab_want" ]; then
+  printf '%s\n' "$crypttab_want" | sudo install -m644 /dev/stdin /etc/crypttab
+  sudo dracut --force --regenerate-all
+fi
+if ! systemctl is-enabled --quiet fstrim.timer; then
+  sudo systemctl enable --now fstrim.timer
+fi
+
+# Discard freed swap slots. fstrim only covers mounted filesystems, so without
+# this the SSD keeps treating every page ever swapped out as live data. Takes
+# effect at the next swapon (boot), since re-enabling swap live first pulls all
+# swapped pages back into RAM.
+fstab_want=$(awk '
+  !/^[[:space:]]*(#|$)/ && $3 == "swap" && $4 !~ /(^|,)discard(=|,|$)/ {
+    $4 = $4 ",discard"
+  }
+  { print }
+' /etc/fstab)
+if [ "$(cat /etc/fstab)" != "$fstab_want" ]; then
+  printf '%s\n' "$fstab_want" | sudo install -m644 /dev/stdin /etc/fstab
+  sudo systemctl daemon-reload
+fi
