@@ -61,6 +61,7 @@ They do not cover chat responses to me.
 
 * No unsafe, unless strictly needed.
   Each unsafe block/function needs a SAFETY explanation.
+* Use `CARGO_INCREMENTAL=0`, disk space and I/O is scarce.
 
 ## Comments
 
