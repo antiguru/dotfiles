@@ -141,6 +141,19 @@ if [[ -n "$jail_cgroup" ]]; then
   )
 fi
 
+# AWS CLI config, read-only: credential_process and similar settings name
+# commands the host aws also runs. The SSO token and role-credential caches
+# stay writable, or every aws call fails writing them. Create them first so the
+# binds have a target.
+if [[ -d "$HOME/.aws" ]]; then
+  mkdir -p "$HOME/.aws/cli/cache" "$HOME/.aws/sso/cache"
+  args+=(
+    --ro-bind "$HOME/.aws" "$HOME/.aws"
+    --bind "$HOME/.aws/cli/cache" "$HOME/.aws/cli/cache"
+    --bind "$HOME/.aws/sso/cache" "$HOME/.aws/sso/cache"
+  )
+fi
+
 # ssh agent socket.
 if [[ -n "${SSH_AUTH_SOCK:-}" && -S "$SSH_AUTH_SOCK" ]]; then
   args+=(--bind "$SSH_AUTH_SOCK" "$SSH_AUTH_SOCK")
@@ -261,6 +274,12 @@ done
 # OrbStack-specific; Docker Desktop would instead be ~/.docker/run/docker.sock.
 docker_sock="$HOME/.orbstack/run/docker.sock"
 
+# The profile below makes the AWS caches writable but not ~/.aws itself, so
+# create them up front.
+if [[ -d "$HOME/.aws" ]]; then
+  mkdir -p "$HOME/.aws/cli/cache" "$HOME/.aws/sso/cache"
+fi
+
 profile="(version 1)
 (deny default)
 
@@ -307,6 +326,11 @@ profile="(version 1)
 ;; uv keeps its package cache here (XDG default on macOS too, not ~/Library/Caches);
 ;; rw or every uv/uvx invocation fails to read and rewrite the cache.
 (allow file-read* file-write* (subpath \"$HOME/.cache/uv\"))
+;; AWS CLI: config read-only (credential_process names commands the host aws
+;; also runs); SSO token and role-credential caches rw, or every call fails.
+(allow file-read* (subpath \"$HOME/.aws\"))
+(allow file-read* file-write* (subpath \"$HOME/.aws/cli/cache\")
+                              (subpath \"$HOME/.aws/sso/cache\"))
 
 ;; statusLine and the WorktreeCreate hook run scripts under ~/.claude regardless
 ;; of config_dir, so the personal jail (config_dir = ~/.claude-personal) needs
