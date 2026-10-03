@@ -113,6 +113,8 @@ args=(
   # Claude launcher + versions; rw so auto-update works.
   --bind "$HOME/.local/bin" "$HOME/.local/bin"
   --bind "$HOME/.local/share/claude" "$HOME/.local/share/claude"
+  # AWS CLI runtime; ~/.local/bin/aws is a symlink into it.
+  --ro-bind-try "$HOME/.local/share/aws-cli" "$HOME/.local/share/aws-cli"
   # /opt: teleport (tsh) and other system-installed tools, read-only.
   --ro-bind-try /opt /opt
   # Credentials for git push / gh, read-only.

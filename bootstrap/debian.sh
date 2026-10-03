@@ -11,7 +11,6 @@ set -euo pipefail
 apt_packages=(
   aptitude
   atop
-  awscli
   bc
   bubblewrap
   build-essential
