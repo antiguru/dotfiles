@@ -122,6 +122,9 @@ args=(
   --ro-bind-try "$HOME/.config/materialize" "$HOME/.config/materialize"
   --ro-bind-try "$HOME/.gitconfig" "$HOME/.gitconfig"
   --ro-bind-try "$HOME/.config/gh" "$HOME/.config/gh"
+  # gh extensions (gh-stack). Read-only: they are executables the host gh
+  # also runs, so install and upgrade them outside the jail.
+  --ro-bind-try "$HOME/.local/share/gh" "$HOME/.local/share/gh"
   --ro-bind-try "$HOME/.config/git" "$HOME/.config/git"
   # Shell init, read-only.
   --ro-bind-try "$HOME/.zshrc" "$HOME/.zshrc"
@@ -309,13 +312,14 @@ profile="(version 1)
 (allow file-read* (literal \"$HOME/.claude/statusline.py\")
                   (subpath \"$HOME/.claude/hooks\"))
 
-;; read-only: toolchain, shell init, git/gh config, materialize config
+;; read-only: toolchain, shell init, git/gh config, gh extensions, materialize config
 (allow file-read* (subpath \"$HOME/.rustup\")
                   (literal \"$HOME/.zshrc\") (literal \"$HOME/.zshenv\")
                   (subpath \"$HOME/.oh-my-zsh\")
                   (literal \"$HOME/.gitconfig\") (literal \"$HOME/.gitignore\")
                   (subpath \"$HOME/.config/git\")
                   (subpath \"$HOME/.config/gh\")
+                  (subpath \"$HOME/.local/share/gh\")
                   (subpath \"$HOME/.config/materialize\"))
 
 ;; ssh: agent only; known_hosts + config ro; private keys not allowed.
