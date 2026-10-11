@@ -35,11 +35,13 @@ apt_packages=(
   linux-cpupower
   linux-perf
   lld
+  lm-sensors
   mc
   mosh
   nodejs
   npm
   numactl
+  nvme-cli
   passt
   pkg-config
   poppler-utils
@@ -50,6 +52,7 @@ apt_packages=(
   qemu-system
   rr
   shellcheck
+  smartmontools
   strace
   subversion
   sudo
@@ -74,6 +77,31 @@ fi
 if [ ! -f "$ts_list" ]; then
   curl -fsSL "https://pkgs.tailscale.com/stable/debian/${ts_distro}.tailscale-keyring.list" \
     | sudo tee "$ts_list" >/dev/null
+fi
+
+# GitHub CLI ships its own apt repo; Debian's gh lags behind. The keyring holds
+# two primary keys (one expired 2026-09-05), so pin the whole set of primary
+# fingerprints rather than the first one.
+gh_key_ids=$'2C6106201985B60E6C7AC87323F3D4EA75716059\n7F38BBB59D064DBCB3D84D725612B36462313325'
+gh_keyring=/etc/apt/keyrings/githubcli-archive-keyring.gpg
+gh_list=/etc/apt/sources.list.d/github-cli.list
+if [ ! -f "$gh_keyring" ]; then
+  gh_key=$(mktemp)
+  curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg >"$gh_key"
+  gh_key_got=$(gpg --show-keys --with-colons "$gh_key" 2>/dev/null \
+    | awk -F: '$1 == "pub" {p = 1; next} $1 == "fpr" && p {print $10} {p = 0}' \
+    | sort)
+  if [ "$gh_key_got" != "$gh_key_ids" ]; then
+    echo "ERROR: unexpected GitHub CLI APT key IDs: $gh_key_got" >&2
+    exit 1
+  fi
+  # Already binary, so no dearmor step.
+  sudo install -Dm644 "$gh_key" "$gh_keyring"
+  rm -f "$gh_key"
+fi
+if [ ! -f "$gh_list" ]; then
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=$gh_keyring] https://cli.github.com/packages stable main" \
+    | sudo tee "$gh_list" >/dev/null
 fi
 
 # Helm ships its own apt repo on Buildkite's package registry.
