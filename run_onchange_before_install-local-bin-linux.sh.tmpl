@@ -56,6 +56,13 @@ at_version "$bin/trufflehog" "$trufflehog_version" || install_tar \
   "https://github.com/trufflesecurity/trufflehog/releases/download/v${trufflehog_version}/trufflehog_${trufflehog_version}_linux_${th_arch}.tar.gz" \
   trufflehog
 
+# htmltest: shares trufflehog's linux_<arch> asset naming.
+# renovate: datasource=github-releases depName=wjdp/htmltest
+htmltest_version="0.17.0"
+at_version "$bin/htmltest" "$htmltest_version" || install_tar \
+  "https://github.com/wjdp/htmltest/releases/download/v${htmltest_version}/htmltest_${htmltest_version}_linux_${th_arch}.tar.gz" \
+  htmltest
+
 # uv ships uv + uvx; the release tag has no leading v.
 # renovate: datasource=github-releases depName=astral-sh/uv
 uv_version="0.12.23"
@@ -119,5 +126,30 @@ KEY
   unzip -q "$tmp/$zip" -d "$tmp"
   "$tmp/aws/install" -i "$HOME/.local/share/aws-cli" -b "$bin" --update
   rm -rf "$tmp"
+fi
+
+# Rust via rustup, installed only when absent: rustup then updates itself and
+# the toolchains, so the pin only fixes the version a fresh machine starts from.
+# The checksum comes from the same host, so it guards against corruption, not a
+# compromised host. --no-modify-path because the shell profiles already source
+# ~/.cargo/env. llvm-tools backs cargo-binutils from the cargo tools script.
+# Its asset arch naming matches uname -m, like uv.
+# renovate: datasource=github-tags depName=rust-lang/rustup
+rustup_version="1.29.1"
+if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
+  tmp=$(mktemp -d)
+  url="https://static.rust-lang.org/rustup/archive/${rustup_version}/${uv_arch}-unknown-linux-gnu/rustup-init"
+  curl -fsSL "$url" -o "$tmp/rustup-init"
+  echo "$(curl -fsSL "$url.sha256" | cut -d' ' -f1)  $tmp/rustup-init" | sha256sum -c --quiet -
+  chmod +x "$tmp/rustup-init"
+  "$tmp/rustup-init" -y --no-modify-path --default-toolchain stable \
+    --component rust-src,llvm-tools
+  rm -rf "$tmp"
+fi
+
+# Claude Code via the official installer, only when absent: it installs into
+# ~/.local/bin and updates itself afterwards, so there is no version to pin.
+if [ ! -e "$bin/claude" ]; then
+  curl -fsSL https://claude.ai/install.sh | bash
 fi
 {{ end -}}
