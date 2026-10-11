@@ -8,7 +8,7 @@ set -euo pipefail
 command -v gh >/dev/null || { echo "gh not on PATH; skipping gh extensions" >&2; exit 0; }
 
 # renovate: datasource=github-releases depName=github/gh-stack
-gh_stack_version="v0.2.0"
+gh_stack_version="v0.2.1"
 # renovate: datasource=github-releases depName=cli/cli
 gh_cli_skill_version="v2.102.0"
 
