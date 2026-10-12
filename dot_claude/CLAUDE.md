@@ -8,10 +8,13 @@
   If you can't finish a task, take a step back and consult user.
 * Never drop comments, especially when refactoring code.
 * If a file system operation fails due to insufficient permissions, ask me the fix it.
-* Never attempt to use `sudo`.
+* Never attempt to use `sudo` on the local machine.
+  On disposable remote scratch instances, sudo is fine.
 * Keep chat responses terse. Fragments fine, drop filler and hedging.
   If caveman mode is active, follow it in chat.
   Code, commits, pull requests, and docs stay in normal prose.
+* `~/.claude` is published in a public dotfiles repository.
+  In skills, hooks, and CLAUDE.md, resolve workspace identifiers (URLs, ids, names) at run time, never hardcode them.
 
 # Running programs
 
@@ -19,6 +22,16 @@
   It sets cgroup `memory.max`, so the program is OOM-killed at the cap and exits 137.
 * Never use `systemd-run` for this.
   It needs a D-Bus socket that claude-jail does not have.
+* Never use `pkill -f` or `pgrep -f PATTERN` inside a tool call.
+  The pattern matches the calling shell's own command line, so it kills the shell or makes wait loops never finish.
+  Kill or wait by PID, or put cleanup in a script file whose name does not match.
+
+# Agents
+
+* Execute ready plans with subagent-driven development without asking which approach.
+* Subagents that build or start services must commit before verifying, block in the foreground (no background watchers), and return BLOCKED rather than ending the turn.
+* After a subagent reports DONE, check `git status` and `git log` before trusting it.
+* Write hand-off prompts as markdown with sections.
 
 # Pull requests
 
@@ -51,17 +64,28 @@ They do not cover chat responses to me.
   Use EnterWorktree before editing files.
   Double-check that the worktree's revision matches the expected revision.
 * Add local ignored files to .git/info/exclude, and global (for all users) ignores to .gitignore
+* Never revert a probe with `git checkout <file>`, it discards every uncommitted edit in that file.
+  Commit before probing, or revert with an edit.
+* When rebasing stacks:
+  * Take pre-rebase backups as tags, not branches, because `rebase --update-refs` moves every branch in the range.
+  * Disable rerere (`git -c rerere.enabled=false rebase`).
+  * Before pushing, check `git merge-base --is-ancestor` for every adjacent pair of branches.
 
 # Github
 
 * Prefer github MCP over `gh` tool.
 * Mark posts to GitHub (issues, comments, reviews, pull requests) as posted by Claude Code.
+* When collecting pull request feedback, call `get_reviews` in addition to the comment tools.
+  A review with a body and no line comments only appears there.
 
 # Rust
 
 * No unsafe, unless strictly needed.
   Each unsafe block/function needs a SAFETY explanation.
 * Use `CARGO_INCREMENTAL=0`, disk space and I/O is scarce.
+* Large test modules go in `<module>/tests.rs`, declared with a plain `#[cfg(test)] mod tests;`, never `#[path]`.
+  Small inline test modules stay inline.
+* When work touches an unwieldy file, split it by responsibility as an early pure-move step that keeps the public surface.
 
 ## Comments
 
