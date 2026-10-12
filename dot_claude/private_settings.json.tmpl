@@ -3,6 +3,7 @@
     "MZ_CI_DEV_TOKEN": "{{ include "ci_dev_token.age" | decrypt | trim }}"
   },
   "permissions": {
+    "defaultMode": "auto",
     "allow": [
       "Bash(bk artifacts download:*)",
       "Bash(bk artifacts list:*)",
@@ -76,25 +77,28 @@
     "type": "command",
     "command": "/usr/bin/python3 {{ .chezmoi.homeDir }}/.claude/statusline.py WORK"
   },
+  "skillOverrides": {
+    "gh": "off"
+  },
   "enabledPlugins": {
-    "rust-analyzer-lsp@claude-plugins-official": true,
-    "clangd-lsp@claude-plugins-official": true,
-    "skill-creator@claude-plugins-official": true,
-    "code-review@claude-plugins-official": true,
+    "rust-analyzer-lsp@claude-plugins-official": false,
+    "clangd-lsp@claude-plugins-official": false,
+    "skill-creator@claude-plugins-official": false,
+    "code-review@claude-plugins-official": false,
     "pr-review-toolkit@claude-plugins-official": true,
-    "claude-code-setup@claude-plugins-official": true,
-    "claude-md-management@claude-plugins-official": true,
+    "claude-code-setup@claude-plugins-official": false,
+    "claude-md-management@claude-plugins-official": false,
     "superpowers@claude-plugins-official": true,
     "github@claude-plugins-official": false,
-    "linear@claude-plugins-official": true,
+    "linear@claude-plugins-official": false,
     "lumen@ory": false,
     "caveman@caveman": true,
-    "plugin-dev@claude-plugins-official": true,
-    "mcp-server-dev@claude-plugins-official": true,
+    "plugin-dev@claude-plugins-official": false,
+    "mcp-server-dev@claude-plugins-official": false,
     "binutils-mcp@antiguru-tools": true,
     "pollard@antiguru-tools": true,
-    "buildkite@claude-plugins-official": true,
-    "playwright@claude-plugins-official": true,
+    "buildkite@claude-plugins-official": false,
+    "playwright@claude-plugins-official": false,
     "cc-plugin-you-should-know@builtin": true
   },
   "extraKnownMarketplaces": {

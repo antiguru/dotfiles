@@ -80,28 +80,13 @@ This applies to `~/dev/repos/materialize`.
 
 * Worktrees are in ~/dev/repos/materialize/.claude/worktrees/ Use EnterWorktree before editing files.
 * Check if compiles using `cargo check`.
-* Format code using `cargo fmt` after editing Rust files.
+* Format code using `bin/fmt` after editing files, not `cargo fmt`.
   Never run `cargo fmt --check`.
-* Run `bin/lint` and `cargo fmt` before committing, fixing any potential errors.
-* Run locally using `bin/environmentd`, not `cargo build` or `cargo run`.
-  * If it fails to start with Cockroach not running, start cockroach using `docker run --name=cockroach -d -p 26257:26257 -p 26258:8080 cockroachdb/cockroach:latest start-single-node --insecure --store=type=mem,size=2G` (or `docker start cockroach` if the container exists.)
 * Run docker compositions in `mzcompose` using `bin/mzcompose --find NAME run WORKFLOW`, with `default` being a valid workflow that selects all workflows.
 * Use `bin/mzcompose list` (or `list-workflows`, `list-compositions`) to see what can be run.
 * Use `bin/mzcompose logs` to access logs of a container.
 * Use `bin/mzcompose down` to stop a composition.
 * Never allow as_conversions, use mz_ore::CastFrom/CastLossy.
-
-* To commit, do the following first:
-  * Check that a change is clean, run `bin/lint`.
-  * Use `bin/fmt` to format many files according to Materialize's preference.
-  * Use `cargo fmt` to format .rs files.
-  * Run `cargo clippy`
-  * A change is clean when no (unexpected) warnings are left.
-
-* Run testdrive files using `bin/mzcompose --find testdrive -- NAME`. `NAME` is a file in `test/testdrive`, relative to this directory.
-* Run sqllogictest files using `bin/sqllogictest -- PATH`. `PATH` is relative to the root and usually a file in `test/sqllogictest`.
-  * Rewrite sqllogictest files using `bin/sqllogictest -- --rewrite-results`
-* Use `REWRITE=1 cargo test ...` to rewrite datadriven tests.
 * Pull requests use `upstream/main` as their base.
 * Push branches to `origin`.
 * Do not manually update `*.snap` files. Use `cargo test` followed by `cargo insta accept` instead.
