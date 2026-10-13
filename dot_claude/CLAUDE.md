@@ -110,6 +110,7 @@ This applies to `~/dev/repos/materialize`.
 * Use `bin/mzcompose list` (or `list-workflows`, `list-compositions`) to see what can be run.
 * Use `bin/mzcompose logs` to access logs of a container.
 * Use `bin/mzcompose down` to stop a composition.
+  Run it before removing a worktree, `bin/mzcompose` cannot find the composition afterwards.
 * Never allow as_conversions, use mz_ore::CastFrom/CastLossy.
 * Pull requests use `upstream/main` as their base.
 * Push branches to `origin`.

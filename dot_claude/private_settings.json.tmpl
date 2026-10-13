@@ -1,6 +1,6 @@
 {
   "env": {
-    "MZ_CI_DEV_TOKEN": "{{ include "ci_dev_token.age" | decrypt | trim }}"
+    "CI_DASHBOARD_TOKEN": "{{ include "ci_dev_token.age" | decrypt | trim }}"
   },
   "permissions": {
     "defaultMode": "auto",
@@ -71,6 +71,48 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{ .chezmoi.homeDir }}/.claude/hooks/mzcompose-reaper.sh pre"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{ .chezmoi.homeDir }}/.claude/hooks/mzcompose-reaper.sh post"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{ .chezmoi.homeDir }}/.claude/hooks/mzcompose-reaper.sh start"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{ .chezmoi.homeDir }}/.claude/hooks/mzcompose-reaper.sh end"
+          }
+        ]
+      }
     ]
   },
   "statusLine": {
@@ -118,5 +160,30 @@
   "theme": "dark",
   "editorMode": "vim",
   "inputNeededNotifEnabled": true,
-  "agentPushNotifEnabled": true
+  "agentPushNotifEnabled": true,
+  "autoMode": {
+    "environment": [
+      "$defaults",
+      "**Organization**: Materialize, GitHub org MaterializeInc. The user is an engineer on the open-source database in MaterializeInc/materialize.",
+      "**Trusted repo**: ~/dev/repos/materialize and its worktrees under .claude/worktrees/. Remote `origin` is the user's fork and `upstream` is MaterializeInc/materialize, the user pushes to both. Any other remote is a colleague's fork and is fetch-only.",
+      "**Host**: sessions usually run inside claude-jail, a sandbox on the user's workstation. Some run outside it with the user's full permissions.",
+      "**Dotfiles**: ~/.claude is generated from the chezmoi source at ~/.local/share/chezmoi, which is a public GitHub repo. Workspace identifiers and secrets must not be written there.",
+      "**Sensitive remote targets**: any host, namespace or environment with `prod` or `production` as a whole word."
+    ],
+    "allow": [
+      "$defaults",
+      "Running the trusted repo's tooling: bin/mzcompose (its `down` deletes that composition's volumes), bin/fmt, bin/lint, bin/sqllogictest, cargo check/build/test.",
+      "Pushing the user's own feature branches to `origin` or `upstream`, including with --force-with-lease, and gh stack commands with --remote upstream. Native GitHub stacks require their branches on upstream.",
+      "Running `docker compose -p <project> down` for compositions this session started or whose working directory no longer exists."
+    ],
+    "soft_deny": [
+      "$defaults",
+      "Pushing to upstream's main, or deleting any upstream branch the user did not create.",
+      "Any manual release step: creating or pushing release branches or tags, or running release tooling by hand. Releases go through automation only.",
+      "Pushing to a branch the user did not create, such as a colleague's branch on upstream or on another remote.",
+      "Force-pushing a branch that is the base of another open PR without first repointing the dependents. GitHub then marks the dependent PRs merged and deletes their branches.",
+      "`git push --force` without --force-with-lease.",
+      "Running ci/test/console/e2e-prod.sh or any command against a prod or production environment."
+    ]
+  }
 }
