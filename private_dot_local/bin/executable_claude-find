@@ -1,0 +1,292 @@
+#!/usr/bin/env bash
+# claude-find: find and resume Claude Code sessions.
+#
+#   claude-find                 sessions for the current git branch
+#   claude-find 39769           sessions for PR 39769 of the current repo
+#   claude-find <PR URL>
+#   claude-find <branch>
+#   claude-find -s 'some text'  sessions whose prompts, title or transcript contain the text
+#   claude-find -a 'question'   ask Claude which sessions match a description
+#
+#   -l            print matches instead of opening the picker
+#   -n            resume with plain claude, not claude-jail
+#   -R owner/repo resolve PR numbers against this repo
+#   ... -- ARGS   pass ARGS to claude after --resume <id>
+#
+# `claude --from-pr` only finds sessions holding a pr-link record, which
+# Claude Code writes for a minority of the PRs a session creates. This script
+# also matches the PR's head branch, as worktree name, push target or recorded
+# gitBranch, and falls back to sessions that merely mention the PR URL.
+#
+# Every config dir (~/.claude, ~/.claude-*) shares one transcript store, so a
+# session is resumed with the config dir whose account email matches the one
+# the session recorded. Resume must run in the session's project directory,
+# because Claude Code looks sessions up per project.
+set -euo pipefail
+
+die() { echo "claude-find: $*" >&2; exit 1; }
+
+# GNU grep -o under a UTF-8 locale is about 40x slower on the transcripts
+# (measured 13.5s vs 0.35s). Scan bytewise, restore the locale for display.
+user_lc_all=${LC_ALL-unset}
+export LC_ALL=C
+restore_locale() {
+  if [[ $user_lc_all == unset ]]; then unset LC_ALL; else export LC_ALL=$user_lc_all; fi
+}
+
+# Typed prompts of a transcript. Tool results are user records too, but their
+# content is an array, so matching a string content skips them cheaply.
+prompts() {
+  grep '"role":"user","content":"' "$1" \
+    | jq -R -r 'fromjson? | .message.content | strings
+        | select(startswith("<") | not) | gsub("\\s+"; " ")'
+}
+
+if [[ ${1:-} == --preview ]]; then
+  restore_locale
+  prompts "$2" | cut -c1-400 | tail -n 5 | sed 's/^/> /;G'
+  exit 0
+fi
+
+list=0 jail=1 repo='' mode=ref
+while getopts lnR:sa opt; do
+  case $opt in
+  l) list=1 ;;
+  n) jail=0 ;;
+  R) repo=$OPTARG ;;
+  s) mode=text ;;
+  a) mode=ask ;;
+  *) exit 2 ;;
+  esac
+done
+shift $((OPTIND - 1))
+query=''
+if [[ $# -gt 0 && $1 != -- ]]; then query=$1; shift; fi
+[[ ${1:-} == -- ]] && shift
+extra=("$@")
+
+store=$(cd -P "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects" && pwd) \
+  || die "no transcript store"
+
+# Lines of "email<TAB>config dir" for every config dir with a logged-in account.
+accounts=$(
+  for d in "$HOME/.claude" "$HOME"/.claude-*; do
+    [[ -d $d ]] || continue
+    j=$d/.claude.json
+    [[ $d == "$HOME/.claude" ]] && j=$HOME/.claude.json
+    [[ -f $j ]] || continue
+    printf '%s\t%s\n' "$(jq -r '.oauthAccount.emailAddress // empty' "$j")" "$d"
+  done
+)
+
+# Maps an account email to the config dir logged in with it.
+config_for() {
+  local e d
+  while IFS=$'\t' read -r e d; do
+    [[ -n $e && $e == "$1" ]] && { echo "$d"; return; }
+  done <<<"$accounts"
+  echo "$HOME/.claude"
+}
+
+# Prints one picker row for a transcript: score, last activity, reason,
+# account, title, project directory, session id, config dir, transcript path.
+row() {
+  local f=$1 score=$2 why=$3 id proj when title email config cwd
+  id=$(basename "$f" .jsonl)
+  proj=$(basename "$(dirname "$f")")
+  when=$(tail -c 100000 "$f" | grep -o '"timestamp":"[^"]*"' | tail -n 1 \
+    | cut -d'"' -f4 | cut -c1-16 | tr T ' ')
+  title=$(grep -o '"customTitle":"[^"]*"' "$f" | tail -n 1 | cut -d'"' -f4)
+  [[ -n $title ]] || title=$(grep -o '"aiTitle":"[^"]*"' "$f" | tail -n 1 | cut -d'"' -f4)
+  email=$(grep -m1 -o "email address is [^ ]*" "$f" | head -n 1 | cut -d' ' -f4)
+  config=$(config_for "${email%.}")
+  # The project dir name is the start directory with every non-alphanumeric
+  # character replaced by '-'.
+  cwd=$( { grep -m1 -o '"cwd":"[^"]*"' "$f"
+    grep -o -E '"(relocatedCwd|originalCwd)":"[^"]*"' "$f"; } | cut -d'"' -f4 \
+    | sort -u | while IFS= read -r c; do
+      [[ $(printf '%s' "$c" | sed 's/[^A-Za-z0-9]/-/g') == "$proj" ]] && { echo "$c"; break; }
+    done)
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$score" "${when:-?}" "$why" \
+    "$(basename "$config")" "${title:-untitled}" "${cwd:-?}" "$id" "$config" "$f"
+}
+
+# Top-level transcripts only, subagent transcripts live one level deeper.
+transcripts() { ls "$store"/*/*.jsonl; }
+
+# Escapes a string for use inside an extended regex.
+ere() { printf '%s' "$1" | sed 's/[][\.*^$+?(){}|/]/\\&/g'; }
+
+# Rows for sessions that worked on a PR or branch.
+find_ref() {
+  local pr='' url='' branch='' info b end pushed f
+  if [[ -z $query ]]; then
+    branch=$(git branch --show-current 2>/dev/null) || true
+    [[ -n $branch ]] || die "not on a branch, pass a PR or branch"
+  elif [[ $query =~ ^https://github\.com/([^/]+/[^/]+)/pull/([0-9]+) ]]; then
+    repo=${BASH_REMATCH[1]} pr=${BASH_REMATCH[2]}
+  elif [[ $query =~ ^#?([0-9]+)$ ]]; then
+    pr=${BASH_REMATCH[1]}
+  else
+    branch=$query
+  fi
+
+  if [[ -n $pr ]]; then
+    info=$(gh pr view "$pr" ${repo:+-R "$repo"} --json url,headRefName \
+      --jq '.url + "\t" + .headRefName') || die "cannot resolve PR $pr"
+    url=${info%%$'\t'*} branch=${info#*$'\t'}
+  else
+    # Best effort: a branch without a PR still matches by branch.
+    url=$(gh pr list --head "$branch" --state all --limit 1 ${repo:+-R "$repo"} \
+      --json url --jq '.[0].url // empty' 2>/dev/null) || true
+  fi
+
+  case $branch in
+  main | master | main_empty)
+    echo "claude-find: $branch is a default branch, matching by PR URL only" >&2
+    branch=''
+    ;;
+  esac
+  [[ -n $branch || -n $url ]] || die "nothing to match"
+  echo "claude-find: matching${url:+ $url}${branch:+ branch $branch}" >&2
+
+  b=$(ere "$branch")
+  # Transcripts store commands JSON-encoded, so a branch argument ends at a
+  # space, a quote, a backslash or the end of the string.
+  end='([ "\\]|$)'
+  pushed="(push[^\"]{0,200}[ :/]$b$end)|(-[bB] $b$end)|(\"worktreeName\":\"$b\")"
+
+  transcripts | xargs grep -lF ${url:+-e "$url"} ${branch:+-e "$branch"} 2>/dev/null \
+    | while IFS= read -r f; do
+      if [[ -n $url ]] && grep -qF "\"prUrl\":\"$url\"" "$f"; then
+        row "$f" 4 pr-link
+      elif [[ -n $branch ]] && grep -qE "$pushed" "$f"; then
+        row "$f" 3 pushed
+      elif [[ -n $branch ]] && grep -qF "\"gitBranch\":\"$branch\"" "$f"; then
+        row "$f" 2 gitBranch
+      elif [[ -n $url ]] && grep -qF "$url" "$f"; then
+        row "$f" 1 mentions
+      fi
+    done
+}
+
+# Rows for sessions containing a text. A hit in a typed prompt or the title
+# outranks any number of hits elsewhere in the transcript.
+find_text() {
+  local f n id hot d
+  [[ -n $query ]] || die "-s needs a text"
+  # Typed prompts come from each config dir's history.jsonl, which is far
+  # cheaper to read than the transcripts.
+  hot=$(for d in "$HOME/.claude" "$HOME"/.claude-*; do
+    [[ -f $d/history.jsonl ]] || continue
+    jq -r --arg q "$query" 'select(.sessionId and
+      (.display | ascii_downcase | contains($q | ascii_downcase))) | .sessionId' \
+      "$d/history.jsonl"
+  done | sort -u)
+  transcripts | xargs grep -ciF -e "$query" 2>/dev/null | grep -v ':0$' \
+    | while IFS= read -r line; do
+      f=${line%:*} n=${line##*:} id=$(basename "${line%:*}" .jsonl)
+      if grep -qxF "$id" <<<"$hot" \
+        || grep -oE '"(customTitle|aiTitle)":"[^"]*"' "$f" | grep -qiF -e "$query"; then
+        printf '%s\t%s\t%s\n' $((1000000 + n)) "prompt, $n hits" "$f"
+      else
+        printf '%s\t%s\t%s\n' "$n" "$n hits" "$f"
+      fi
+    done | sort -t$'\t' -k1,1nr | head -n 40 \
+    | while IFS=$'\t' read -r n why f; do row "$f" "$n" "$why"; done
+}
+
+# A line per session for Claude to choose from: id, account, last activity,
+# project, title, branches, PRs, and the first and last typed prompts. Prompts
+# come from each config dir's history.jsonl.
+catalog() {
+  local d
+  {
+    transcripts | sed 's|.*/||; s|\.jsonl$||; s|^|F\t|'
+    transcripts | xargs grep -oE \
+      '"(gitBranch|worktreeName|customTitle|aiTitle|prUrl)":"[^"]*"' 2>/dev/null \
+      | uniq | awk -F'"' '{ n = split($1, p, "/"); id = p[n]; sub(/\.jsonl:$/, "", id)
+          print "M\t" id "\t" $2 "\t" $4 }'
+    for d in "$HOME/.claude" "$HOME"/.claude-*; do
+      [[ -f $d/history.jsonl ]] || continue
+      jq -r --arg acct "$(basename "$d")" 'select(.sessionId and (.display | startswith("/") | not))
+        | ["H", .sessionId, $acct, (.timestamp / 1000 | strftime("%Y-%m-%d")),
+           .project, (.display | gsub("\\s+"; " ") | .[0:150])] | @tsv' \
+        "$d/history.jsonl"
+    done
+  } | awk -F'\t' '
+    $1 == "F" { have[$2] = 1; next }
+    $1 == "M" {
+      if ($3 == "customTitle") ct[$2] = $4
+      else if ($3 == "aiTitle") at[$2] = $4
+      else if ($3 == "prUrl") { if (index(prs[$2], $4) == 0) prs[$2] = prs[$2] " " $4 }
+      else if ($4 !~ /^(main|master|HEAD|main_empty)$/ && index(br[$2], " " $4) == 0)
+        br[$2] = br[$2] " " $4
+      next
+    }
+    $1 == "H" {
+      acct[$2] = $3; day[$2] = $4; proj[$2] = $5
+      if (!($2 in first)) first[$2] = $6
+      else { prev[$2] = last[$2]; last[$2] = $6 }
+    }
+    END {
+      for (id in first) if (id in have) {
+        t = (id in ct) ? ct[id] : at[id]
+        printf "%s | %s | %s | %s | title: %s | branches:%s | PRs:%s | prompts: %s", \
+          id, acct[id], day[id], proj[id], t, br[id], prs[id], first[id]
+        if (prev[id] != "") printf " ... %s", prev[id]
+        if (last[id] != "") printf " ... %s", last[id]
+        printf "\n"
+      }
+    }'
+}
+
+# Rows for the sessions Claude picks from the catalog.
+find_ask() {
+  local answer id why f sessions
+  [[ -n $query ]] || die "-a needs a question"
+  sessions=$(catalog)
+  echo "claude-find: asking Claude about $(wc -l <<<"$sessions" | tr -d ' ') sessions" >&2
+  # The query runs without customizations or tools and leaves no transcript,
+  # so it neither triggers session hooks nor shows up in later searches.
+  answer=$(claude -p --safe-mode --no-session-persistence --tools "" \
+    --model haiku "Below is a catalog of Claude Code sessions, one per line:
+id | account | last day | project | title | branches | PRs | typed prompts.
+Find the sessions that best match this description: $query
+Answer with up to 10 lines, best match first, each exactly
+<session id><TAB><reason in at most 8 words>
+and nothing else. Only use ids from the catalog." <<<"$sessions") || die "claude failed"
+  local rank=100
+  while IFS=$'\t' read -r id why; do
+    [[ $id =~ ^[0-9a-f-]{36}$ ]] || continue
+    for f in "$store"/*/"$id".jsonl; do [[ -f $f ]] && break; done
+    [[ -f $f ]] || continue
+    row "$f" "$rank" "${why:-match}"
+    rank=$((rank - 1))
+  done <<<"$answer"
+}
+
+case $mode in
+ref) rows=$(find_ref | sort -t$'\t' -k1,1nr -k2,2r) ;;
+text) rows=$(find_text | sort -t$'\t' -k1,1nr -k2,2r) ;;
+ask) rows=$(find_ask) ;;
+esac
+[[ -n $rows ]] || die "no sessions found"
+restore_locale
+
+if [[ $list -eq 1 ]]; then
+  cut -f2-7 <<<"$rows" | column -t -s$'\t'
+  exit 0
+fi
+
+command -v fzf >/dev/null || die "fzf not installed, use -l"
+pick=$(fzf --delimiter=$'\t' --with-nth=2,3,4,5,6 --no-sort --select-1 \
+  --preview "$0 --preview {9}" --preview-window=down,40%,wrap <<<"$rows") || exit 1
+IFS=$'\t' read -r _ _ _ _ _ cwd id config _ <<<"$pick"
+
+[[ -d $cwd ]] || die "$cwd no longer exists, recreate it to resume $id"
+cd "$cwd"
+if [[ $config != "$HOME/.claude" ]]; then export CLAUDE_CONFIG_DIR=$config; fi
+launcher=claude
+if [[ $jail -eq 1 ]] && command -v claude-jail >/dev/null; then launcher=claude-jail; fi
+exec "$launcher" --resume "$id" ${extra[@]+"${extra[@]}"}

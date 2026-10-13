@@ -22,6 +22,7 @@ apt_packages=(
   docker.io
   dracut
   etckeeper
+  fzf
   gdb
   gh
   git
