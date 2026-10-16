@@ -38,6 +38,8 @@
 * Keep pull requst comments short and precise. Do not outline test plans or specific code changes.
 * Do no prefix pull request descriptions with `## Summary`.
 * Do not include a test plan in the pull request description.
+* Open pull requests as drafts.
+  Never mark a pull request ready for review, I do that after reading it.
 
 # Markdown
 
@@ -74,7 +76,12 @@ They do not cover chat responses to me.
 # Github
 
 * Prefer github MCP over `gh` tool.
-* Mark posts to GitHub (issues, comments, reviews, pull requests) as posted by Claude Code.
+* Mark posts to GitHub (issues, comments, pull requests) as posted by Claude Code.
+* Reviews of other people's pull requests:
+  * Create a pending review only, never submit it. I curate, edit, and submit.
+  * Report only high-confidence correctness and invariant findings, at most 5. No style or comment nits.
+  * Keep each comment short and plain, so I can adopt it in my own voice.
+  * Attribute once, with one line in the review body, not per comment.
 * When collecting pull request feedback, call `get_reviews` in addition to the comment tools.
   A review with a body and no line comments only appears there.
 
