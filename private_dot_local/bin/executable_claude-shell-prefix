@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# claude-shell-prefix: CLAUDE_CODE_SHELL_PREFIX wrapper for Claude Code.
+#
+# Claude Code invokes it as `claude-shell-prefix '<command string>'` for Bash
+# tool calls, hooks, and stdio MCP servers. The string carries its own snapshot
+# sourcing and cwd tracking, so running it in a fresh shell keeps semantics.
+#
+# Raising oom_score_adj makes the kernel OOM killer pick the tool command over
+# Claude Code's own process. Raising it needs no privilege, and children inherit
+# it, so everything the command spawns is preferred too.
+set -u
+
+echo 500 > /proc/self/oom_score_adj 2>/dev/null || true
+
+exec "${SHELL:-/bin/bash}" -c "$1"

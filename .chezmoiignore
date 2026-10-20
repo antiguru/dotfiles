@@ -5,6 +5,8 @@
 .config/systemd/**
 # memcap enforces its cap with cgroup v2, which only exists on Linux.
 .local/bin/memcap
+# oom_score_adj is a Linux procfs knob.
+.local/bin/claude-shell-prefix
 {{- end }}
 {{- if ne .shell "zsh" }}
 .zshrc

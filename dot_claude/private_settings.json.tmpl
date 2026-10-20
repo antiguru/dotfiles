@@ -1,6 +1,7 @@
 {
   "env": {
-    "CI_DASHBOARD_TOKEN": "{{ include "ci_dev_token.age" | decrypt | trim }}"
+    "CI_DASHBOARD_TOKEN": "{{ include "ci_dev_token.age" | decrypt | trim }}"{{ if eq .chezmoi.os "linux" }},
+    "CLAUDE_CODE_SHELL_PREFIX": "{{ .chezmoi.homeDir }}/.local/bin/claude-shell-prefix"{{ end }}
   },
   "permissions": {
     "defaultMode": "auto",
