@@ -8,8 +8,22 @@
 # Raising oom_score_adj makes the kernel OOM killer pick the tool command over
 # Claude Code's own process. Raising it needs no privilege, and children inherit
 # it, so everything the command spawns is preferred too.
+#
+# A default memcap bounds a runaway command before it drives the host into swap
+# and the global OOM killer. memcap always creates its cgroup under the same
+# parent, so an explicit `memcap LIMIT ...` inside the command moves it into a
+# sibling cgroup and its limit replaces this default.
 set -u
 
 echo 500 > /proc/self/oom_score_adj 2>/dev/null || true
 
-exec "${SHELL:-/bin/bash}" -c "$1"
+shell="${SHELL:-/bin/bash}"
+
+# Same parent cgroup memcap picks. Without a writable one memcap exits 1, which
+# would fail every command, so run uncapped instead.
+uid="$(id -u)"
+parent="${CLAUDE_JAIL_CGROUP:-/sys/fs/cgroup/user.slice/user-$uid.slice/user@$uid.service}"
+if [[ -w "$parent/cgroup.subtree_control" ]] && command -v memcap > /dev/null; then
+  exec memcap 32G "$shell" -c "$1"
+fi
+exec "$shell" -c "$1"
