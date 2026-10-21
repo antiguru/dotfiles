@@ -62,6 +62,7 @@ apt_packages=(
   time
   tmux
   tpm2-tools
+  unattended-upgrades
   valgrind
   vim
   xxd
@@ -154,6 +155,24 @@ fi
 
 sudo apt-get update
 sudo apt-get install -y "${apt_packages[@]}"
+
+# Refresh package lists and run unattended-upgrades daily. The packaged
+# 50unattended-upgrades origins are kept as is: on testing they cover every
+# Debian update for the codename, not only security fixes.
+auto_upgrades=/etc/apt/apt.conf.d/20auto-upgrades
+auto_upgrades_want=$'APT::Periodic::Update-Package-Lists "1";\nAPT::Periodic::Unattended-Upgrade "1";'
+if [ "$(cat "$auto_upgrades" 2>/dev/null)" != "$auto_upgrades_want" ]; then
+  printf '%s\n' "$auto_upgrades_want" | sudo install -Dm644 /dev/stdin "$auto_upgrades"
+fi
+# Also upgrade gh, Teleport, Tailscale and Helm from their own repos. Unnamed
+# list entries in a later file append to the packaged Origins-Pattern. Match by
+# site because the Teleport repo's origin and label fields are
+# "debian <codename>" and the Helm repo's are opaque packagecloud IDs.
+uu_local=/etc/apt/apt.conf.d/52unattended-upgrades-local
+uu_local_want=$'Unattended-Upgrade::Origins-Pattern {\n  "site=cli.github.com";\n  "site=apt.releases.teleport.dev";\n  "site=pkgs.tailscale.com";\n  "site=packages.buildkite.com";\n};'
+if [ "$(cat "$uu_local" 2>/dev/null)" != "$uu_local_want" ]; then
+  printf '%s\n' "$uu_local_want" | sudo install -Dm644 /dev/stdin "$uu_local"
+fi
 
 # Run my user services without an active login session.
 if [ "$(loginctl show-user "$USER" -p Linger --value 2>/dev/null)" != "yes" ]; then
