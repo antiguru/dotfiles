@@ -1,3 +1,7 @@
+# Keep PATH free of duplicates in every shell, login or not. Flag both names:
+# -U on the path array alone does not dedup `export PATH=...` assignments,
+# which brew shellenv and the tool installers in .zprofile use.
+typeset -U path PATH
 . "$HOME/.cargo/env"
 {{- if eq .chezmoi.os "darwin" }}
 eval "$(/opt/homebrew/bin/brew shellenv)"

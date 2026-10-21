@@ -1,6 +1,6 @@
 # User specific environment and startup programs
 
-typeset -U path
+# PATH dedup (typeset -U) is set in .zshenv.
 path=(~/bin ~/.local/bin ~/.pulumi/bin $path[@])
 
 {{- if eq .chezmoi.os "linux" }}
