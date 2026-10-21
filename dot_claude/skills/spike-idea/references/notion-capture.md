@@ -71,7 +71,7 @@ Add a `Sessions` section after `Resume context`, so the entry can be traced to t
 wrote it while the transcript still exists. The session id is in `$CLAUDE_CODE_SESSION_ID`. Read
 it, the hostname, and the working directory with Bash at capture time. A transcript lives only on
 that host, under `~/.claude/projects/<cwd with / replaced by ->/<id>.jsonl`, and Claude Code
-deletes it after `cleanupPeriodDays` (30 by default). Never upload transcripts to Notion: they
+deletes it after `cleanupPeriodDays` (30 by default, 90 in these dotfiles). Never upload transcripts to Notion: they
 hold raw tool output, including account names and anything a command printed.
 
 One bullet per session that created or substantially updated the entry. Append a bullet for
