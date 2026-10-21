@@ -42,4 +42,41 @@ Sections, in order (drop ones a quick spike did not do):
 9. Recommendation (numbered, staged)
 10. Open questions
 
-End with a line stating that the spike code is throwaway and not committed.
+11. Resume context
+12. Sessions
+
+End the body before `Resume context` with a line stating that the spike code is throwaway and not
+committed.
+
+## Resume context
+
+The page is the durable record of the spike. A later session must be able to pick it up from the
+page alone, because session transcripts expire (see below). Record only what the other sections
+do not already say:
+
+- Base: repository and commit the analysis or prototype ran against.
+- Artifacts: branches, worktrees, draft PRs, and where throwaway code lived. Code in a scratchpad
+  is gone once the session ends, so say so, and quote any snippet that is needed to rerun a
+  measurement.
+- Environment: how a measurement was set up, if the results section does not already state it.
+- Leads checked and dropped that are not in `Dead ends`, one line each with the reason.
+- Decisions taken after the page was first written, if they changed the design.
+- Next step: the single concrete action to take first.
+
+Update this section whenever a later session moves the spike forward.
+
+## Sessions
+
+Add a `Sessions` section after `Resume context`, so the entry can be traced to the session that
+wrote it while the transcript still exists. The session id is in `$CLAUDE_CODE_SESSION_ID`. Read
+it, the hostname, and the working directory with Bash at capture time. A transcript lives only on
+that host, under `~/.claude/projects/<cwd with / replaced by ->/<id>.jsonl`, and Claude Code
+deletes it after `cleanupPeriodDays` (30 by default). Never upload transcripts to Notion: they
+hold raw tool output, including account names and anything a command printed.
+
+One bullet per session that created or substantially updated the entry. Append a bullet for
+each later session, and never replace an earlier one:
+
+```
+- 2026-10-05, `<session id>` on `<host>`, `<cwd>`: created. Local transcript, expires after cleanupPeriodDays. Resume with `claude --resume <session id>`.
+```

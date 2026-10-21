@@ -116,6 +116,9 @@
       }
     ]
   },
+  "worktree": {
+    "baseRef": "fresh"
+  },
   "statusLine": {
     "type": "command",
     "command": "/usr/bin/python3 {{ .chezmoi.homeDir }}/.claude/statusline.py WORK"
@@ -156,10 +159,13 @@
       }
     }
   },
+  "feedbackDrafts": "notify",
   "tui": "fullscreen",
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
   "editorMode": "vim",
+  "preferredNotifChannel": "auto",
+  "autoCompactEnabled": true,
   "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
   "autoMode": {
