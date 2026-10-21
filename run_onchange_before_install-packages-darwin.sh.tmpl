@@ -2,13 +2,15 @@
 #!/bin/bash
 
 brew bundle --file=/dev/stdin <<EOF
+tap "domt4/autoupdate"
 tap "jundot/omlx", "git@github.com:jundot/omlx.git"
 tap "materializeinc/cockroach"
-# tap "materializeinc/crosstools" # broken upstream: TAP_PATH hard-coded to def-/
+tap "materializeinc/crosstools"
 
 brew "aarch64-elf-gcc"
 brew "aarch64-elf-gdb"
 brew "age"
+brew "asciinema"
 brew "aspell"
 brew "awscli"
 brew "buf"
@@ -21,7 +23,6 @@ brew "coreutils"
 brew "docker"
 brew "docker-compose"
 brew "hf"
-brew "gemini-cli"
 brew "fzf"
 brew "gh"
 brew "git"
@@ -40,10 +41,10 @@ brew "macvim"
 brew "make"
 brew "marp-cli"
 brew "materializeinc/cockroach/cockroach"
-# brew "materializeinc/crosstools/aarch64-unknown-linux-gnu"
-# brew "materializeinc/crosstools/libfdb-c-aarch64-unknown-linux-gnu"
+brew "materializeinc/crosstools/aarch64-unknown-linux-gnu"
 brew "midnight-commander"
 brew "mosh"
+brew "mtr"
 brew "neovide"
 brew "ninja"
 brew "node"
@@ -52,7 +53,6 @@ brew "poppler"
 brew "postgresql@18"
 brew "python@3.14"
 brew "qemu"
-brew "rust"
 brew "scrcpy"
 brew "shellcheck"
 brew "smartmontools"
@@ -66,6 +66,7 @@ brew "yq"
 cask "1password-cli"
 cask "android-platform-tools"
 cask "antigravity"
+cask "cameracontroller"
 cask "claude-code@latest"
 cask "easy-move+resize"
 cask "firefox"
@@ -79,6 +80,7 @@ cask "linear"
 cask "notion"
 cask "ollama-app"
 cask "orbstack"
+cask "recordly"
 cask "rustrover"
 cask "slack"
 cask "stats"
@@ -88,4 +90,28 @@ cask "visual-studio-code"
 cask "vlc"
 cask "zoom"
 EOF
+
+# Rust via rustup, installed only when absent: rustup then updates itself and
+# the toolchains, so the pin only fixes the version a fresh machine starts from.
+# Not Homebrew's rust formula: it links cargo/rustc into the brew prefix, which
+# shadows ~/.cargo/bin and gets relinked on every upgrade. Mirrors the Linux
+# install-local-bin script; see there for the checksum and component rationale.
+# renovate: datasource=github-tags depName=rust-lang/rustup
+rustup_version="1.29.1"
+if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
+  case "$(uname -m)" in
+    arm64)  rustup_arch=aarch64 ;;
+    x86_64) rustup_arch=x86_64 ;;
+    *) echo "unsupported arch: $(uname -m)" >&2; exit 1 ;;
+  esac
+  tmp=$(mktemp -d)
+  url="https://static.rust-lang.org/rustup/archive/${rustup_version}/${rustup_arch}-apple-darwin/rustup-init"
+  curl -fsSL "$url" -o "$tmp/rustup-init"
+  echo "$(curl -fsSL "$url.sha256" | cut -d' ' -f1)  $tmp/rustup-init" | shasum -a 256 -c --quiet - \
+    || { echo "rustup-init checksum mismatch" >&2; exit 1; }
+  chmod +x "$tmp/rustup-init"
+  "$tmp/rustup-init" -y --no-modify-path --default-toolchain stable \
+    --component rust-src,llvm-tools
+  rm -rf "$tmp"
+fi
 {{ end -}}

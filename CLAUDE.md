@@ -40,7 +40,8 @@ chezmoi encodes target attributes in the source filename, not in metadata.
 
 ## Provisioning scripts
 
-* `run_onchange_before_install-packages-darwin.sh.tmpl` is the macOS `brew bundle` manifest (brews + casks); edit the heredoc to add a package.
+* `run_onchange_before_install-packages-darwin.sh.tmpl` is the macOS `brew bundle` manifest (brews + casks); edit the heredoc to add a package. It also bootstraps rustup when absent, not the brew `rust` formula.
+* `run_onchange_after_brew-autoupdate-darwin.sh.tmpl` schedules `brew autoupdate` (launchd); casks marked `auto_updates` are left to their own updaters.
 * `run_onchange_before_install-local-bin-linux.sh.tmpl` installs pinned release binaries into `~/.local/bin` on Linux (no Homebrew there), plus rustup and Claude Code when absent (both self-update); `bootstrap/debian.sh` handles system packages that need sudo.
 * `run_onchange_after_install-cargo-tools.sh` installs pinned `cargo install` tools on all platforms.
 * `run_onchange_after_install-claude-mcp.sh.tmpl` registers user-scope MCP servers into both Claude profiles via the `claude mcp` CLI; it is remove-before-add idempotent.

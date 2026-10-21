@@ -1,0 +1,12 @@
+{{- if eq .chezmoi.os "darwin" -}}
+#!/usr/bin/env bash
+# Schedule background `brew update && brew upgrade` via launchd.
+# Casks marked auto_updates are skipped (no --greedy), their own updaters own them.
+# Re-runs whenever this file changes; delete-before-start applies new options.
+set -euo pipefail
+
+# The tap is installed by the brew bundle manifest; its command needs explicit trust.
+brew trust --command domt4/autoupdate/autoupdate
+brew autoupdate delete 2>/dev/null || true
+brew autoupdate start 1d --upgrade --cleanup --immediate --notify-on-error
+{{ end -}}
