@@ -78,6 +78,22 @@ at_version "$bin/github-mcp-server" "$github_mcp_version" || install_tar \
   "https://github.com/github/github-mcp-server/releases/download/v${github_mcp_version}/github-mcp-server_Linux_${helm_arch}.tar.gz" \
   github-mcp-server
 
+# Codex CLI: the tarball holds one static musl binary named after the target
+# triple, so install_tar does not fit. Its arch naming matches uname -m, like
+# uv. The release tag is rust-v<version>. Sandboxing uses the system bwrap from
+# bootstrap/debian.sh.
+# renovate: datasource=github-releases depName=openai/codex
+codex_version="0.164.0"
+if ! at_version "$bin/codex" "codex-cli $codex_version"; then
+  tmp=$(mktemp -d)
+  curl -fsSL \
+    "https://github.com/openai/codex/releases/download/rust-v${codex_version}/codex-${uv_arch}-unknown-linux-musl.tar.gz" \
+    -o "$tmp/dl.tar.gz"
+  tar -xzf "$tmp/dl.tar.gz" -C "$tmp"
+  install -m755 "$tmp/codex-${uv_arch}-unknown-linux-musl" "$bin/codex"
+  rm -rf "$tmp"
+fi
+
 # AWS CLI v2: the official installer, pinned, with its PGP signature checked
 # against the AWS CLI Team key (fingerprint FB5D B77F D5C1 18B8 0511 ADA8 A631
 # 0ACC 4672 475C, expires 2027-07-01). The installer puts the bundled runtime in

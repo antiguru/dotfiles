@@ -1,6 +1,13 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
+  "packageRules": [
+    {
+      "description": "Codex tags releases as rust-v<version>",
+      "matchDepNames": ["openai/codex"],
+      "extractVersion": "^rust-v(?<version>.+)$"
+    }
+  ],
   "customManagers": [
     {
       "customType": "regex",
