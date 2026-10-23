@@ -13,8 +13,10 @@
 * Keep chat responses terse. Fragments fine, drop filler and hedging.
   If caveman mode is active, follow it in chat.
   Code, commits, pull requests, and docs stay in normal prose.
+{{- if eq .agent "claude" }}
 * `~/.claude` is published in a public dotfiles repository.
   In skills, hooks, and CLAUDE.md, resolve workspace identifiers (URLs, ids, names) at run time, never hardcode them.
+{{- end }}
 
 # Running programs
 
@@ -32,6 +34,10 @@
 * Subagents that build or start services must commit before verifying, block in the foreground (no background watchers), and return BLOCKED rather than ending the turn.
 * After a subagent reports DONE, check `git status` and `git log` before trusting it.
 * Write hand-off prompts as markdown with sections.
+{{- if eq .agent "claude" }}
+* Default subagents to `model: sonnet`.
+  Use `opus` only for the final whole-branch review and for correctness-critical tasks.
+{{- end }}
 
 # Pull requests
 
@@ -63,7 +69,9 @@ They do not cover chat responses to me.
 * Never use `git reset --hard`. Never.
 * Never use `git add -A`.
 * Always work off branches in worktrees.
+{{- if eq .agent "claude" }}
   Use EnterWorktree before editing files.
+{{- end }}
   Double-check that the worktree's revision matches the expected revision.
 * Add local ignored files to .git/info/exclude, and global (for all users) ignores to .gitignore
 * Never revert a probe with `git checkout <file>`, it discards every uncommitted edit in that file.
@@ -76,7 +84,7 @@ They do not cover chat responses to me.
 # Github
 
 * Prefer github MCP over `gh` tool.
-* Mark posts to GitHub (issues, comments, pull requests) as posted by Claude Code.
+* Mark posts to GitHub (issues, comments, pull requests) as posted by {{ if eq .agent "claude" }}Claude Code{{ else }}Codex{{ end }}.
 * Reviews of other people's pull requests:
   * Create a pending review only, never submit it. I curate, edit, and submit.
   * Report only high-confidence correctness and invariant findings, at most 5. No style or comment nits.
@@ -109,10 +117,13 @@ This applies to `~/dev/repos/materialize`.
 * The base branch is always upstream/main.
   Never consider `main_empty` or origin/main.
 
+{{ if eq .agent "claude" -}}
 * Worktrees are in ~/dev/repos/materialize/.claude/worktrees/ Use EnterWorktree before editing files.
-* Check if compiles using `cargo check`.
-* Format code using `bin/fmt` after editing files, not `cargo fmt`.
-  Never run `cargo fmt --check`.
+{{ end -}}
+* Never run `cargo fmt --check`.
+{{- if eq .agent "claude" }}
+* Correctness-critical subagent tasks are those touching differential/timely folds, catalog durability, or bootstrap/lifecycle.
+{{- end }}
 * Run docker compositions in `mzcompose` using `bin/mzcompose --find NAME run WORKFLOW`, with `default` being a valid workflow that selects all workflows.
 * Use `bin/mzcompose list` (or `list-workflows`, `list-compositions`) to see what can be run.
 * Use `bin/mzcompose logs` to access logs of a container.

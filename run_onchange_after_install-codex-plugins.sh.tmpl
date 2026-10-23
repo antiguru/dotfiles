@@ -7,6 +7,18 @@ set -euo pipefail
 
 command -v codex >/dev/null || { echo "codex CLI not on PATH; skipping"; exit 0; }
 
+config="${CODEX_HOME:-$HOME/.codex}/config.toml"
+mkdir -p "$(dirname "$config")"
+touch "$config"
+
+# Read CLAUDE.md in repos without an AGENTS.md. Codex rewrites config.toml, so
+# it is not a chezmoi-managed file. Top-level keys must precede every table,
+# hence prepend instead of append.
+if ! grep -q '^project_doc_fallback_filenames' "$config"; then
+  { echo 'project_doc_fallback_filenames = ["CLAUDE.md"]'; cat "$config"; } >"$config.new"
+  mv "$config.new" "$config"
+fi
+
 # Plugins. superpowers ships a native Codex manifest in its own repo, so use
 # that marketplace instead of claude-plugins-official. pr-review-toolkit is not
 # mirrored: it only contains Claude agents and commands, which Codex ignores.
@@ -27,8 +39,7 @@ codex mcp add playwright -- npx @playwright/mcp@latest
 # once per server with `codex mcp login NAME`.
 add_http() {
   codex mcp get "$1" >/dev/null 2>&1 && return
-  printf '\n[mcp_servers.%s]\nurl = "%s"\n' "$1" "$2" \
-    >>"${CODEX_HOME:-$HOME/.codex}/config.toml"
+  printf '\n[mcp_servers.%s]\nurl = "%s"\n' "$1" "$2" >>"$config"
 }
 add_http polarsignals https://api.polarsignals.com/api/mcp
 add_http rustrover http://localhost:64342/stream

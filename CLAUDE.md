@@ -52,6 +52,7 @@ chezmoi encodes target attributes in the source filename, not in metadata.
 
 * Two profiles are managed: `dot_claude/` (default, `~/.claude`) and `dot_claude-personal/` (`~/.claude-personal`, selected via `CLAUDE_CONFIG_DIR`).
 * `dot_claude/settings.json.tmpl` holds the permission allowlist and hooks; live `/config` edits drift from source and show up in `chezmoi diff` until reconciled.
+* The global agent instructions live in `.chezmoitemplates/agents.md`, rendered into `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`; Claude-only lines sit behind `{{ if eq .agent "claude" }}`.
 * `dot_claude/statusline.py` is the status line script (token usage, context %, PR/rate-limit info).
 
 ## claude-jail
