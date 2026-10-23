@@ -45,6 +45,7 @@ chezmoi encodes target attributes in the source filename, not in metadata.
 * `run_onchange_before_install-local-bin-linux.sh.tmpl` installs pinned release binaries into `~/.local/bin` on Linux (no Homebrew there), plus rustup and Claude Code when absent (both self-update); `bootstrap/debian.sh` handles system packages that need sudo.
 * `run_onchange_after_install-cargo-tools.sh` installs pinned `cargo install` tools on all platforms.
 * `run_onchange_after_install-claude-mcp.sh.tmpl` registers user-scope MCP servers into both Claude profiles via the `claude mcp` CLI; it is remove-before-add idempotent.
+* `run_onchange_after_install-codex-plugins.sh.tmpl` mirrors the Claude plugins and MCP servers into Codex via the `codex plugin` and `codex mcp` CLIs; HTTP servers are appended to `~/.codex/config.toml` directly because `codex mcp add --url` blocks on OAuth.
 * Version bumps in these scripts trigger re-runs because the body hash changes.
 
 ## Claude Code config
