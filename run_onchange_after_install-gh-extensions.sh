@@ -10,7 +10,7 @@ command -v gh >/dev/null || { echo "gh not on PATH; skipping gh extensions" >&2;
 # renovate: datasource=github-releases depName=github/gh-stack
 gh_stack_version="v0.2.1"
 # renovate: datasource=github-releases depName=cli/cli
-gh_cli_skill_version="v2.102.0"
+gh_cli_skill_version="v2.103.3"
 
 # A pinned extension refuses `gh extension upgrade`, so replace it when the
 # installed version differs from the pin.
