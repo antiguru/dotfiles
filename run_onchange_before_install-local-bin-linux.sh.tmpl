@@ -151,7 +151,7 @@ fi
 # ~/.cargo/env. llvm-tools backs cargo-binutils from the cargo tools script.
 # Its asset arch naming matches uname -m, like uv.
 # renovate: datasource=github-tags depName=rust-lang/rustup
-rustup_version="1.29.1"
+rustup_version="1.29.2"
 if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
   tmp=$(mktemp -d)
   url="https://static.rust-lang.org/rustup/archive/${rustup_version}/${uv_arch}-unknown-linux-gnu/rustup-init"
