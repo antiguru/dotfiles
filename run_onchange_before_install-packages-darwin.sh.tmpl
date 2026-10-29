@@ -98,7 +98,7 @@ EOF
 # shadows ~/.cargo/bin and gets relinked on every upgrade. Mirrors the Linux
 # install-local-bin script; see there for the checksum and component rationale.
 # renovate: datasource=github-tags depName=rust-lang/rustup
-rustup_version="1.29.1"
+rustup_version="1.29.2"
 if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
   case "$(uname -m)" in
     arm64)  rustup_arch=aarch64 ;;

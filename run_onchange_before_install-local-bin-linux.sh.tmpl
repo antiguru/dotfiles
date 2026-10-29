@@ -111,7 +111,7 @@ fi
 # ~/.local/share/aws-cli and symlinks aws and aws_completer into ~/.local/bin.
 # Its asset arch naming matches uname -m.
 # renovate: datasource=github-tags depName=aws/aws-cli
-awscli_version="2.38.6"
+awscli_version="2.39.1"
 if ! at_version "$bin/aws" "aws-cli/$awscli_version "; then
   tmp=$(mktemp -d)
   cat >"$tmp/key.asc" <<'KEY'
