@@ -88,7 +88,7 @@ at_version "$bin/github-mcp-server" "$github_mcp_version" || install_tar \
 # modify and that supports --as-pid-1 and --perms, and falls back to the
 # bundled codex-resources/bwrap otherwise.
 # renovate: datasource=github-releases depName=openai/codex
-codex_version="0.164.0"
+codex_version="0.165.0"
 if ! { [ -L "$bin/codex" ] && at_version "$bin/codex" "codex-cli $codex_version"; }; then
   codex_root="$HOME/.local/share/codex"
   codex_dir="$codex_root/$codex_version-${uv_arch}-unknown-linux-musl"
