@@ -26,6 +26,9 @@ claude mcp remove --scope user launchdarkly 2>/dev/null || true
 claude mcp add --scope user --transport http launchdarkly https://mcp.launchdarkly.com/mcp/launchdarkly
 claude mcp remove --scope user buildkite 2>/dev/null || true
 claude mcp add --scope user --transport http buildkite https://mcp.buildkite.com/mcp
+claude mcp remove --scope user context-graph 2>/dev/null || true
+claude mcp add --scope user --transport http context-graph \
+  https://context-graph-prod.corvus-bluegill.ts.net/api/mcp/agent
 
 # Grafana runs in Docker and reaches the remote instance over HTTPS; the
 # service-account token is age-encrypted at rest and decrypted at apply time.
