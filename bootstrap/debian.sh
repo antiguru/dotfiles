@@ -27,12 +27,14 @@ apt_packages=(
   gh
   git
   git-svn
+  google-chrome-stable
   gpg
   heaptrack
   helm
   hugo
   iotop
   jq
+  libclang-dev
   linux-cpupower
   linux-perf
   lld
@@ -153,6 +155,37 @@ if [ ! -f "$teleport_list" ]; then
     | sudo tee "$teleport_list" >/dev/null
 fi
 
+# Google Chrome ships its own apt repo; Playwright's "chrome" channel needs it.
+# Write the same keyring and deb822 sources paths that the package's postinst
+# manages, so it overwrites them with equivalent content instead of adding a
+# second entry with a conflicting Signed-By.
+chrome_key_id=EB4C1BFD4F042F6DDDCCEC917721F63BD38B4796
+chrome_keyring=/usr/share/keyrings/google-chrome.gpg
+chrome_sources=/etc/apt/sources.list.d/google-chrome.sources
+if [ ! -f "$chrome_keyring" ]; then
+  chrome_key=$(mktemp)
+  curl -fsSL https://dl.google.com/linux/linux_signing_key.pub >"$chrome_key"
+  # Pin the fingerprint, as for Helm.
+  chrome_key_got=$(gpg --show-keys --with-colons "$chrome_key" \
+    | awk -F: '$1 == "fpr" {print $10}' | head -n 1)
+  if [ "$chrome_key_got" != "$chrome_key_id" ]; then
+    echo "ERROR: unexpected Google Chrome APT key ID: $chrome_key_got" >&2
+    exit 1
+  fi
+  gpg --dearmor <"$chrome_key" | sudo tee "$chrome_keyring" >/dev/null
+  rm -f "$chrome_key"
+fi
+if [ ! -f "$chrome_sources" ]; then
+  printf '%s\n' \
+    'Types: deb' \
+    'URIs: https://dl.google.com/linux/chrome-stable/deb/' \
+    'Suites: stable' \
+    'Components: main' \
+    'Architectures: amd64' \
+    "Signed-By: $chrome_keyring" \
+    | sudo install -Dm644 /dev/stdin "$chrome_sources"
+fi
+
 sudo apt-get update
 sudo apt-get install -y "${apt_packages[@]}"
 
@@ -164,12 +197,12 @@ auto_upgrades_want=$'APT::Periodic::Update-Package-Lists "1";\nAPT::Periodic::Un
 if [ "$(cat "$auto_upgrades" 2>/dev/null)" != "$auto_upgrades_want" ]; then
   printf '%s\n' "$auto_upgrades_want" | sudo install -Dm644 /dev/stdin "$auto_upgrades"
 fi
-# Also upgrade gh, Teleport, Tailscale and Helm from their own repos. Unnamed
+# Also upgrade gh, Teleport, Tailscale, Helm and Chrome from their own repos. Unnamed
 # list entries in a later file append to the packaged Origins-Pattern. Match by
 # site because the Teleport repo's origin and label fields are
 # "debian <codename>" and the Helm repo's are opaque packagecloud IDs.
 uu_local=/etc/apt/apt.conf.d/52unattended-upgrades-local
-uu_local_want=$'Unattended-Upgrade::Origins-Pattern {\n  "site=cli.github.com";\n  "site=apt.releases.teleport.dev";\n  "site=pkgs.tailscale.com";\n  "site=packages.buildkite.com";\n};'
+uu_local_want=$'Unattended-Upgrade::Origins-Pattern {\n  "site=cli.github.com";\n  "site=apt.releases.teleport.dev";\n  "site=pkgs.tailscale.com";\n  "site=packages.buildkite.com";\n  "site=dl.google.com";\n};'
 if [ "$(cat "$uu_local" 2>/dev/null)" != "$uu_local_want" ]; then
   printf '%s\n' "$uu_local_want" | sudo install -Dm644 /dev/stdin "$uu_local"
 fi
