@@ -98,6 +98,8 @@ They do not cover chat responses to me.
 * No unsafe, unless strictly needed.
   Each unsafe block/function needs a SAFETY explanation.
 * Use `CARGO_INCREMENTAL=0`, disk space and I/O is scarce.
+* Use `#[expect(lint)]` instead of `#[allow(lint)]` for temporary suppressions such as `dead_code`.
+  An unfulfilled expectation warns, so the annotation must go once the code is used.
 * Large test modules go in `<module>/tests.rs`, declared with a plain `#[cfg(test)] mod tests;`, never `#[path]`.
   Small inline test modules stay inline.
 * When work touches an unwieldy file, split it by responsibility as an early pure-move step that keeps the public surface.
