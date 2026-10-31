@@ -173,6 +173,10 @@ if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
     --component rust-src,llvm-tools
   rm -rf "$tmp"
 fi
+# Cross-compile target for aarch64 Linux, linked with the gcc-aarch64-linux-gnu
+# and libc6-dev-arm64-cross packages from bootstrap/debian.sh. Runs outside the
+# install guard so existing machines pick it up; rustup skips installed targets.
+"$HOME/.cargo/bin/rustup" target add --toolchain stable aarch64-unknown-linux-gnu
 
 # Claude Code via the official installer, only when absent: it installs into
 # ~/.local/bin and updates itself afterwards, so there is no version to pin.

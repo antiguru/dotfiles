@@ -23,10 +23,12 @@ apt_packages=(
   dracut
   etckeeper
   fzf
+  gcc-aarch64-linux-gnu
   gdb
   gh
   git
   git-svn
+  gnuplot
   google-chrome-stable
   gpg
   heaptrack
@@ -34,6 +36,7 @@ apt_packages=(
   hugo
   iotop
   jq
+  libc6-dev-arm64-cross
   libclang-dev
   linux-cpupower
   linux-perf
