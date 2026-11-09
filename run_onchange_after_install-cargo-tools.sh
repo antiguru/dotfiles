@@ -20,6 +20,6 @@ ensure cargo-deplint 0.1.0
 ensure cargo-edit 0.13.14
 ensure cargo-binutils 0.4.0
 ensure cargo-llvm-lines 0.4.48
-ensure cargo-nextest 0.9.150
+ensure cargo-nextest 0.9.151
 ensure samply 0.13.1
 ensure pollard 0.0.10
