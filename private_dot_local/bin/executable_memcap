@@ -43,11 +43,21 @@ if ! grep -qw memory "$parent/cgroup.subtree_control"; then
   fi
 fi
 
+# The EXIT trap below misses runs killed by SIGKILL, and runs whose command left
+# processes behind, so drop siblings whose memcap has exited. The suffix is the
+# pid of that memcap, so a live pid means a run in progress. rmdir refuses a
+# cgroup that still has members, which leaves those for a later sweep.
+for stale in "$parent"/memcap-*; do
+  [[ -d "$stale" ]] || continue
+  [[ -d "/proc/${stale##*-}" ]] && continue
+  rmdir "$stale" 2>/dev/null || true
+done
+
 cg="$parent/memcap-$$"
 mkdir "$cg"
 cleanup() {
   if ! rmdir "$cg" 2>/dev/null; then
-    echo "memcap: left $cg behind, processes are still in it" >&2
+    echo "memcap: left $cg behind, processes are still in it; a later memcap run removes it once they exit" >&2
   fi
 }
 trap cleanup EXIT
