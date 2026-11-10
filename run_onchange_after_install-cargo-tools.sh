@@ -22,4 +22,4 @@ ensure cargo-binutils 0.4.0
 ensure cargo-llvm-lines 0.4.48
 ensure cargo-nextest 0.9.151
 ensure samply 0.13.1
-ensure pollard 0.0.10
+ensure pollard 0.0.11
